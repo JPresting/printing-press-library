@@ -14,6 +14,7 @@ import (
 
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/mvanhorn/printing-press-library/library/health/peloton/internal/cli"
 	"github.com/mvanhorn/printing-press-library/library/health/peloton/internal/cliutil"
 	"github.com/mvanhorn/printing-press-library/library/health/peloton/internal/mcp/bound"
 	"github.com/mvanhorn/printing-press-library/library/health/peloton/internal/store"
@@ -1072,5 +1073,280 @@ func TestLogUndeclaredArgsIsSilentWhenNothingIsUndeclared(t *testing.T) {
 	}
 	if len(out) != 0 {
 		t.Fatalf("expected no stderr output for a fully-declared call, got %q", out)
+	}
+}
+
+// TestDeepStripFieldsRemovesNamedKeysAtAnyDepth guards the field-name-based
+// (not container-path-based) deletion contract deepStripFields exists to
+// provide: it must reach into nested objects and arrays alike, since the
+// verbose fields it's used for (stream URLs, instructor bios) live inside a
+// mix of per-class list items and a shared instructor array whose exact
+// shape this generated code otherwise never inspects.
+func TestDeepStripFieldsRemovesNamedKeysAtAnyDepth(t *testing.T) {
+	data := json.RawMessage(`{
+		"data": [
+			{"id": "1", "title": "Class One", "vod_stream_url": "https://example.test/1.m3u8"},
+			{"id": "2", "title": "Class Two", "vod_stream_url": "https://example.test/2.m3u8"}
+		],
+		"instructors": [
+			{"id": "i1", "name": "Instructor One", "bio": "a very long bio", "workout_share_images": ["a", "b"]}
+		]
+	}`)
+
+	stripped := deepStripFields(data, []string{"vod_stream_url", "bio", "workout_share_images"})
+
+	var obj map[string]any
+	if err := json.Unmarshal(stripped, &obj); err != nil {
+		t.Fatalf("stripped payload must remain valid JSON: %v", err)
+	}
+	classes := obj["data"].([]any)
+	for _, c := range classes {
+		class := c.(map[string]any)
+		if _, ok := class["vod_stream_url"]; ok {
+			t.Fatalf("vod_stream_url survived stripping in a nested class item: %#v", class)
+		}
+		if _, ok := class["id"]; !ok {
+			t.Fatalf("stripping removed unrelated fields too: %#v", class)
+		}
+	}
+	instructors := obj["instructors"].([]any)
+	instructor := instructors[0].(map[string]any)
+	if _, ok := instructor["bio"]; ok {
+		t.Fatalf("bio survived stripping in a nested instructor record: %#v", instructor)
+	}
+	if _, ok := instructor["workout_share_images"]; ok {
+		t.Fatalf("workout_share_images survived stripping in a nested instructor record: %#v", instructor)
+	}
+	if _, ok := instructor["name"]; !ok {
+		t.Fatalf("stripping removed unrelated instructor fields too: %#v", instructor)
+	}
+}
+
+// TestDeepStripFieldsIsNoOpOnInvalidJSONOrEmptyFieldList guards the helper's
+// safety contract, matching stripTopLevelFields elsewhere in this file: it
+// must never panic or corrupt a payload it can't parse, and must never
+// allocate/rebuild a payload when there's nothing to strip.
+func TestDeepStripFieldsIsNoOpOnInvalidJSONOrEmptyFieldList(t *testing.T) {
+	notJSON := json.RawMessage(`not json`)
+	if got := deepStripFields(notJSON, []string{"bio"}); string(got) != string(notJSON) {
+		t.Fatalf("deepStripFields altered invalid JSON: got %s, want unchanged %s", got, notJSON)
+	}
+
+	valid := json.RawMessage(`{"bio":"x"}`)
+	if got := deepStripFields(valid, nil); string(got) != string(valid) {
+		t.Fatalf("deepStripFields with no fields altered the payload: got %s, want unchanged %s", got, valid)
+	}
+}
+
+// classesVerboseTogglesFixture is shared by the applyVerboseFieldToggles
+// tests below: one class carrying both a stream-and-media field
+// (vod_stream_url) and a join token, plus one instructor carrying a bio
+// field, so each toggle's fields can be asserted independently of the other.
+func classesVerboseTogglesFixture() json.RawMessage {
+	return json.RawMessage(`{
+		"data": [
+			{"id": "1", "title": "Class One", "vod_stream_url": "https://example.test/1.m3u8", "join_tokens": "abc123=="}
+		],
+		"instructors": [
+			{"id": "i1", "name": "Instructor One", "bio": "a very long bio"}
+		]
+	}`)
+}
+
+// TestApplyVerboseFieldTogglesDefaultsStripBothCategories guards the live
+// bug this exists to fix: a 100-item classes_search result measured 454,819
+// bytes against a 60,000-byte MCP tool budget (~4.5 KB/class), most of it
+// stream URLs and per-instructor bio/Q&A/share-image blocks carrying no
+// information relevant to choosing a class. Calls the exact function
+// makeAPIHandlerVerbose uses (not a re-implementation of its loop), with no
+// include_* args set, matching an ordinary classes_search call.
+func TestApplyVerboseFieldTogglesDefaultsStripBothCategories(t *testing.T) {
+	stripped := applyVerboseFieldToggles(classesVerboseTogglesFixture(), map[string]any{}, classesVerboseToggles)
+	strippedText := string(stripped)
+	for _, wantAbsent := range []string{"vod_stream_url", "join_tokens", "\"bio\""} {
+		if strings.Contains(strippedText, wantAbsent) {
+			t.Fatalf("default (unincluded) response still contains %q: %s", wantAbsent, strippedText)
+		}
+	}
+	for _, wantPresent := range []string{"\"id\":\"1\"", "\"title\":\"Class One\"", "\"name\":\"Instructor One\""} {
+		if !strings.Contains(strippedText, wantPresent) {
+			t.Fatalf("stripping removed a field it shouldn't have (missing %q): %s", wantPresent, strippedText)
+		}
+	}
+}
+
+// TestApplyVerboseFieldTogglesEachOptInIsIndependent guards against the
+// weaker version of the prior test, which called deepStripFields directly
+// with both toggles' fields unconditionally and so would still pass even if
+// the real handler ignored both include_* arguments (or conflated them into
+// one). Driving the real applyVerboseFieldToggles function with
+// include_stream_urls and include_instructor_bios set independently proves
+// each opt-in controls only its own field category.
+func TestApplyVerboseFieldTogglesEachOptInIsIndependent(t *testing.T) {
+	streamURLsOnly := applyVerboseFieldToggles(classesVerboseTogglesFixture(), map[string]any{"include_stream_urls": true}, classesVerboseToggles)
+	if !strings.Contains(string(streamURLsOnly), "vod_stream_url") {
+		t.Fatalf("include_stream_urls=true did not restore vod_stream_url: %s", streamURLsOnly)
+	}
+	if strings.Contains(string(streamURLsOnly), "\"bio\"") {
+		t.Fatalf("include_stream_urls=true unexpectedly also restored bio: %s", streamURLsOnly)
+	}
+
+	instructorBiosOnly := applyVerboseFieldToggles(classesVerboseTogglesFixture(), map[string]any{"include_instructor_bios": true}, classesVerboseToggles)
+	if !strings.Contains(string(instructorBiosOnly), "\"bio\"") {
+		t.Fatalf("include_instructor_bios=true did not restore bio: %s", instructorBiosOnly)
+	}
+	if strings.Contains(string(instructorBiosOnly), "vod_stream_url") {
+		t.Fatalf("include_instructor_bios=true unexpectedly also restored vod_stream_url: %s", instructorBiosOnly)
+	}
+
+	both := applyVerboseFieldToggles(classesVerboseTogglesFixture(), map[string]any{"include_stream_urls": true, "include_instructor_bios": true}, classesVerboseToggles)
+	for _, want := range []string{"vod_stream_url", "\"bio\""} {
+		if !strings.Contains(string(both), want) {
+			t.Fatalf("both toggles true should restore %q: %s", want, both)
+		}
+	}
+}
+
+// TestReservedMCPMetaArgsIncludesEveryVerboseToggle guards the other half of
+// the same review finding: include_stream_urls/include_instructor_bios are
+// MCP-only response-shaping arguments, not real Peloton API parameters, so
+// makeAPIHandlerVerbose's knownArgs must reserve them (via
+// reservedMCPMetaArgs, the exact function the handler calls) the same way it
+// reserves "select" and declared bindings -- otherwise they'd be forwarded
+// raw to the live API as unrecognized query params instead of being
+// consumed here.
+func TestReservedMCPMetaArgsIncludesEveryVerboseToggle(t *testing.T) {
+	reserved := reservedMCPMetaArgs(classesVerboseToggles)
+	if !reserved["select"] {
+		t.Fatal(`reservedMCPMetaArgs does not reserve "select"`)
+	}
+	for _, toggle := range classesVerboseToggles {
+		if !reserved[toggle.ArgName] {
+			t.Fatalf("reservedMCPMetaArgs does not reserve %q", toggle.ArgName)
+		}
+	}
+	if len(reserved) != len(classesVerboseToggles)+1 {
+		t.Fatalf("reservedMCPMetaArgs = %v, want exactly select + %d toggle names", reserved, len(classesVerboseToggles))
+	}
+}
+
+// TestClassesCatalogAndSearchDeclareSelectAndVerboseToggles guards tool
+// schema discoverability: an agent reading the tool schema, not this file's
+// source, is how it learns select/include_stream_urls/include_instructor_bios
+// exist at all.
+func TestClassesCatalogAndSearchDeclareSelectAndVerboseToggles(t *testing.T) {
+	s := server.NewMCPServer("peloton", "test")
+	RegisterTools(s)
+	tools := s.ListTools()
+
+	wantTypes := map[string]string{
+		"select":                  "string",
+		"include_stream_urls":     "boolean",
+		"include_instructor_bios": "boolean",
+	}
+	for _, toolName := range []string{"classes_catalog", "classes_search", "classes_show", "classes_structure"} {
+		tool, ok := tools[toolName]
+		if !ok {
+			t.Fatalf("%s tool missing from registered tools", toolName)
+		}
+		for param, wantType := range wantTypes {
+			schema, ok := tool.Tool.InputSchema.Properties[param].(map[string]any)
+			if !ok {
+				t.Fatalf("%s tool schema does not declare %q: %#v", toolName, param, tool.Tool.InputSchema.Properties)
+			}
+			if gotType, _ := schema["type"].(string); gotType != wantType {
+				t.Fatalf("%s tool schema declares %q as type %q, want %q", toolName, param, gotType, wantType)
+			}
+		}
+	}
+}
+
+// TestAllTypedEndpointToolsDeclareSelect guards ask #2 from the live-tested
+// handoff this fixes: "select" -- proven to work well on offline/search
+// tools already -- must be available on every typed endpoint tool, not just
+// the classes_* ones, since the response-bloat problem it addresses isn't
+// unique to classes_search/classes_catalog.
+func TestAllTypedEndpointToolsDeclareSelect(t *testing.T) {
+	s := server.NewMCPServer("peloton", "test")
+	RegisterTools(s)
+	tools := s.ListTools()
+
+	for _, toolName := range []string{
+		"account_show", "classes_catalog", "classes_filters", "classes_search",
+		"classes_show", "classes_structure", "strength_movements",
+		"workouts_list", "workouts_performance", "workouts_show",
+	} {
+		tool, ok := tools[toolName]
+		if !ok {
+			t.Fatalf("%s tool missing from registered tools", toolName)
+		}
+		schema, ok := tool.Tool.InputSchema.Properties["select"].(map[string]any)
+		if !ok {
+			t.Fatalf("%s tool schema does not declare select: %#v", toolName, tool.Tool.InputSchema.Properties)
+		}
+		if gotType, _ := schema["type"].(string); gotType != "string" {
+			t.Fatalf("%s tool schema declares select as type %q, want \"string\"", toolName, gotType)
+		}
+	}
+}
+
+// classesSearchRealisticFixture reproduces the live-observed top-level shape
+// of a classes_catalog/classes_search response (data, count, page,
+// browse_categories, fitness_disciplines, instructors -- ride_types/
+// class_types omitted here since makeAPIHandlerVerbose strips them before
+// select ever runs) -- six top-level keys, one more than
+// maxEnvelopeFallbackKeys, which is exactly the shape that made a bare
+// select field name silently project to "{}".
+func classesSearchRealisticFixture() []byte {
+	return []byte(`{
+		"data": [{"id": "class-1", "title": "Power Zone Endurance", "duration": 1800, "instructor_id": "instructor-1"}],
+		"count": 1,
+		"page": 0,
+		"browse_categories": [{"id": "cycling", "name": "Cycling"}],
+		"fitness_disciplines": [{"id": "cycling", "name": "Cycling"}],
+		"instructors": [{"id": "instructor-1", "name": "Some Instructor"}]
+	}`)
+}
+
+// TestSelectDataPrefixReachesCatalogItemsWhereBareFieldNamesCannot guards a
+// P1 review finding: classes_catalog/classes_search wrap their items under
+// a top-level "data" key alongside enough sibling metadata fields
+// (browse_categories, fitness_disciplines, instructors, count, page) that
+// filterFields' envelope-fallback heuristic (which only auto-descends into
+// a lone sibling array on objects with a handful of top-level keys) never
+// fires. A caller following the tool's own advertised example (a bare field
+// name like "id") got an empty object back, silently discarding every
+// result -- the documented fix is to always prefix with "data.".
+func TestSelectDataPrefixReachesCatalogItemsWhereBareFieldNamesCannot(t *testing.T) {
+	fixture := classesSearchRealisticFixture()
+
+	prefixed := cli.FilterFieldsJSON(fixture, "data.id,data.title,data.duration,data.instructor_id")
+	var prefixedResult struct {
+		Data []map[string]any `json:"data"`
+	}
+	if err := json.Unmarshal(prefixed, &prefixedResult); err != nil {
+		t.Fatalf("data.-prefixed select result is not valid JSON: %v\n%s", err, prefixed)
+	}
+	if len(prefixedResult.Data) != 1 {
+		t.Fatalf("data.-prefixed select returned %d items, want 1: %s", len(prefixedResult.Data), prefixed)
+	}
+	for _, want := range []string{"id", "title", "duration", "instructor_id"} {
+		if _, ok := prefixedResult.Data[0][want]; !ok {
+			t.Fatalf("data.-prefixed select is missing field %q: %s", want, prefixed)
+		}
+	}
+
+	// The bare-field-name form the tool used to advertise: documented here
+	// as a locked-in regression guard, not a desired behavior. If
+	// filterFields' envelope-fallback threshold ever changes so this starts
+	// returning real data, that's fine -- update this assertion, don't
+	// silently leave selectParamDescriptionDataWrapped's warning stale.
+	bare := cli.FilterFieldsJSON(fixture, "id,title,duration,instructor_id")
+	var bareResult map[string]any
+	if err := json.Unmarshal(bare, &bareResult); err != nil {
+		t.Fatalf("bare select result is not valid JSON: %v\n%s", err, bare)
+	}
+	if len(bareResult) != 0 {
+		t.Fatalf("bare field-name select unexpectedly returned data (%s) -- if the envelope-fallback heuristic changed, update selectParamDescriptionDataWrapped's warning and this test together", bare)
 	}
 }
