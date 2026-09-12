@@ -1023,7 +1023,17 @@ func syncResource(ctx context.Context, c interface {
 	}
 
 	if !humanFriendly {
-		fmt.Fprintf(syncEvents, `{"event":"sync_complete","resource":"%s","total":%d,"duration_ms":%d}`+"\n", resource, totalCount, time.Since(started).Milliseconds())
+		// A failed count (e.g. another sync worker briefly locking the
+		// store) is non-fatal to the sync itself, but must not publish a
+		// false store_total of 0 -- that reads as "the store just lost
+		// everything" to a caller comparing store_total across calls. Omit
+		// the field entirely instead (see syncCompleteEventJSON's doc
+		// comment).
+		var storeTotal *int
+		if count, countErr := db.Count(resource); countErr == nil {
+			storeTotal = &count
+		}
+		fmt.Fprintln(syncEvents, syncCompleteEventJSON(resource, totalCount, storeTotal, finalCursor, time.Since(started).Milliseconds()))
 	}
 
 	if consumedTotal > 0 && totalCount == 0 && extractFailureTotal >= consumedTotal {
