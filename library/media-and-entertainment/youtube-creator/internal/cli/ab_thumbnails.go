@@ -41,7 +41,7 @@ type abRotation struct {
 
 func abStatePath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "youtube-pp-cli", "ab-thumbnails.json")
+	return filepath.Join(home, ".config", "youtube-creator-pp-cli", "ab-thumbnails.json")
 }
 
 func abLoad() (map[string]*abTest, error) {
@@ -107,7 +107,7 @@ func newAbThumbnailsStartCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start an A/B test on a video's thumbnail",
-		Example: "  youtube-pp-cli ab thumbnails start --video dQw4w9WgXcQ \\\n" +
+		Example: "  youtube-creator-pp-cli ab thumbnails start --video dQw4w9WgXcQ \\\n" +
 			"    --variants A:./thumb_a.png,B:./thumb_b.png --rotate 24",
 		Annotations: map[string]string{"mcp:read-only": "false"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -161,7 +161,7 @@ func newAbThumbnailsStartCmd(flags *rootFlags) *cobra.Command {
 				"started":      video,
 				"variants":     parsed,
 				"rotate_hours": rotateHours,
-				"next_step":    "Schedule `youtube-pp-cli ab thumbnails rotate " + video + "` every " + fmt.Sprintf("%d", rotateHours) + "h via cron/n8n",
+				"next_step":    "Schedule `youtube-creator-pp-cli ab thumbnails rotate " + video + "` every " + fmt.Sprintf("%d", rotateHours) + "h via cron/n8n",
 			})
 		},
 	}
@@ -366,7 +366,7 @@ func newAbThumbnailsListCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List active thumbnail A/B tests",
-		Example:     "  youtube-pp-cli ab thumbnails list --json",
+		Example:     "  youtube-creator-pp-cli ab thumbnails list --json",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
@@ -460,7 +460,7 @@ func uploadThumbnail(flags *rootFlags, videoID, thumbPath string) error {
 		accessToken = cfg.AccessToken
 	}
 	if accessToken == "" {
-		return fmt.Errorf("no access token available; run `youtube-pp-cli auth login` first")
+		return fmt.Errorf("no access token available; run `youtube-creator-pp-cli auth login` first")
 	}
 
 	data, err := os.ReadFile(thumbPath)

@@ -69,7 +69,7 @@ the authenticated channel. Output is a JSON array of held comment threads
 with the snippet fields agents need to make a decision.
 
 Quota cost: ~1 unit per page. For large queues use --limit to cap.`,
-		Example: "  youtube-pp-cli mod queue --since 7d --limit 200 --json",
+		Example: "  youtube-creator-pp-cli mod queue --since 7d --limit 200 --json",
 		Annotations: map[string]string{
 			"mcp:read-only": "true",
 			"pp:endpoint":   "youtube.comment-threads-list",
@@ -239,8 +239,8 @@ func newModApproveCmd(flags *rootFlags) *cobra.Command {
 		Long: `Accepts comment IDs as args, comma-separated --ids, or whitespace-separated
 on stdin. Sends one batched setModerationStatus call (50 units per call,
 regardless of batch size).`,
-		Example: "  youtube-pp-cli mod approve abc123 def456\n" +
-			"  youtube-pp-cli mod queue --json | jq -r '.items[].id' | youtube-pp-cli mod approve",
+		Example: "  youtube-creator-pp-cli mod approve abc123 def456\n" +
+			"  youtube-creator-pp-cli mod queue --json | jq -r '.items[].id' | youtube-creator-pp-cli mod approve",
 		Annotations: map[string]string{"mcp:read-only": "false"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ids := collectIDs(args, idsFlag)
@@ -283,7 +283,7 @@ func newModRejectCmd(flags *rootFlags) *cobra.Command {
 		Long: `Accepts comment IDs as args, comma-separated --ids, or whitespace-separated
 on stdin. The 'rejected' status is the equivalent of the deprecated
 markAsSpam endpoint; YouTube no longer surfaces those comments publicly.`,
-		Example:     "  youtube-pp-cli mod reject abc123 --ban-author",
+		Example:     "  youtube-creator-pp-cli mod reject abc123 --ban-author",
 		Annotations: map[string]string{"mcp:read-only": "false"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ids := collectIDs(args, idsFlag)
@@ -366,7 +366,7 @@ Example rules.yaml:
     - name: thanks-from-known-fan
       author: '^(SuperFan42|LongtimeViewer)$'
       action: approve`,
-		Example:     "  youtube-pp-cli mod auto --rules rules.yaml\n  youtube-pp-cli mod auto --rules rules.yaml --apply",
+		Example:     "  youtube-creator-pp-cli mod auto --rules rules.yaml\n  youtube-creator-pp-cli mod auto --rules rules.yaml --apply",
 		Annotations: map[string]string{"mcp:read-only": "false"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if rulesPath == "" {

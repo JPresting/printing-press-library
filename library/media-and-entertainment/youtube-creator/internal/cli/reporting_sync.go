@@ -41,9 +41,9 @@ func newReportingSyncCmd(flags *rootFlags) *cobra.Command {
 		Long: `Idempotent: lists existing jobs, creates missing ones, polls for completed
 reports in the --since window, downloads CSVs to --out.
 
-Use 'youtube-pp-cli report-types' (generated) to list available report type
+Use 'youtube-creator-pp-cli report-types' (generated) to list available report type
 identifiers (e.g. channel_basic_a2, content_owner_a1).`,
-		Example:     "  youtube-pp-cli reporting sync --types channel_basic_a2,channel_combined_a2 --since 30d --out ./reports/",
+		Example:     "  youtube-creator-pp-cli reporting sync --types channel_basic_a2,channel_combined_a2 --since 30d --out ./reports/",
 		Annotations: map[string]string{"mcp:read-only": "false"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if typesCSV == "" || outDir == "" {
@@ -178,9 +178,16 @@ identifiers (e.g. channel_basic_a2, content_owner_a1).`,
 						resp.Body.Close()
 						return fmt.Errorf("creating file: %w", err)
 					}
-					n, _ := io.Copy(f, resp.Body)
+					n, copyErr := io.Copy(f, resp.Body)
 					f.Close()
 					resp.Body.Close()
+					// A dropped connection leaves a truncated file behind, and the
+					// os.Stat check above would skip it on every later run. Remove
+					// it so the next sync downloads the report again.
+					if copyErr != nil {
+						os.Remove(path)
+						return fmt.Errorf("downloading report %s: %w", r.ID, copyErr)
+					}
 					dls = append(dls, downloaded{
 						Type:      t,
 						JobID:     jobID,
