@@ -1,6 +1,6 @@
 ---
 name: pp-surgegraph
-description: "Every SurgeGraph workflow — research, write, publish, monitor — from the terminal or any agent, with a local... Trigger phrases: `what changed in SurgeGraph this week`, `AI Visibility for my project`, `which prompts lost AI citations`, `publish gap articles from a topic research`, `what knowledge libraries actually show up in citations`, `use surgegraph`, `run surgegraph`."
+description: "SurgeGraph is the Answer Engine Optimization (AEO) platform that tracks AI citations, scores pages for citation readiness, and one-click fixes the gaps — now every workflow runs from the terminal or any agent. Trigger phrases: `what changed in SurgeGraph this week`, `AI Visibility for my project`, `which prompts lost AI citations`, `publish gap articles from a topic research`, `what knowledge libraries actually show up in citations`, `use surgegraph`, `run surgegraph`."
 author: "SurgeGraph Team"
 license: "Apache-2.0"
 argument-hint: "<command> [args] | install cli|mcp"
@@ -15,7 +15,7 @@ metadata:
      This file is a verbatim mirror of library/ai/surgegraph/SKILL.md,
      regenerated post-merge by tools/generate-skills/. Hand-edits here are
      silently overwritten on the next regen. Edit the library/ source instead.
-     See AGENTS.md "Generated artifacts: registry.json, cli-skills/". -->
+     See the repository agent guide, section "Generated artifacts: registry.json, cli-skills/". -->
 
 # SurgeGraph — Printing Press CLI
 
@@ -23,18 +23,20 @@ metadata:
 
 This skill drives the `surgegraph-pp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   npx -y @mvanhorn/printing-press install surgegraph --cli-only
+   npx -y @mvanhorn/printing-press-library install surgegraph --cli-only
    ```
 2. Verify: `surgegraph-pp-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.6 or newer):
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+```bash
+go install github.com/mvanhorn/printing-press-library/library/ai/surgegraph/cmd/surgegraph-pp-cli@latest
+```
 
-SurgeGraph is an AI-search content operations cockpit. The web app shows point-in-time snapshots; this CLI keeps a local cache so you can run `visibility delta`, `prompts losers`, and `citation-domains rank-shift` over time. It compounds three split workflows — topic research, bulk writing, WordPress publishing — into a single `research gaps publish` pipeline, and ships every command as both CLI and MCP so the same agent that drafts an article can monitor the citations it generates.
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 ## When to Use This CLI
 

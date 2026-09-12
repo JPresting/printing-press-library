@@ -41,10 +41,10 @@ type Leg struct {
 	DurationMinutes  int     `json:"duration"`
 	Airline          Airline `json:"airline"`
 	// PATCH: aircraft type, seat type, and amenities fields
-	FlightNumber     string   `json:"flight_number"`
-	AircraftType     string   `json:"aircraft_type,omitempty"`
-	SeatType         string   `json:"seat_type,omitempty"`
-	Amenities        []string `json:"amenities,omitempty"`
+	FlightNumber string   `json:"flight_number"`
+	AircraftType string   `json:"aircraft_type,omitempty"`
+	SeatType     string   `json:"seat_type,omitempty"`
+	Amenities    []string `json:"amenities,omitempty"`
 }
 
 // Flight is one itinerary (possibly multi-leg).
@@ -58,6 +58,20 @@ type Flight struct {
 	// always populated; Airline is populated only when all legs are operated
 	// by a single carrier in the airlineTemplates table. See booking_urls.go.
 	BookingURLs BookingURLs `json:"booking_urls"`
+	// PATCH(library): round trip only. Distinguishes an outbound-leg
+	// itinerary from a return-leg itinerary in the flat Flights list — each
+	// row is a self-contained one-way offer, not a paired round-trip total,
+	// so callers (agents especially) need this to avoid mixing directions.
+	// Empty for one-way and multi-city results.
+	Direction string `json:"direction,omitempty"`
+	// PATCH(library): Google's opaque per-itinerary continuation token
+	// (row priceBlock[1] in the raw response), present only on round-trip
+	// outbound rows. Feed it back via SearchOptions.SelectOutbound (by
+	// index) to run the true two-step round-trip flow: Google then returns
+	// return-leg options actually priced and paired against this specific
+	// outbound, instead of the auto-picked "cheapest return" total baked
+	// into every outbound row's Price today.
+	SelectionToken string `json:"selection_token,omitempty"`
 }
 
 // SearchResult is the normalized envelope returned by Search.
@@ -70,10 +84,19 @@ type SearchResult struct {
 	Query      SearchQuery `json:"query"`
 	Count      int         `json:"count"`
 	Flights    []Flight    `json:"flights"`
+	// PATCH(amend-2026-06-11): non-empty when the result was served by the
+	// server-rendered HTML fallback (Google's flights RPC currently rejects
+	// non-interactive clients). See html_fallback.go.
+	Note string `json:"note,omitempty"`
 	// PATCH(library): populated when one or both airport codes were remapped
 	// from a retired IATA code. The Query echo above keeps the user's
 	// original input; AirportRemapped is the only signal of substitution.
 	AirportRemapped *AirportRemapNote `json:"airport_remapped,omitempty"`
+	// PATCH(library): populated only when SearchOptions.SelectOutbound was
+	// used. The specific outbound itinerary Flights (now return-leg options
+	// only) are priced and paired against — see the two-step flow doc on
+	// SearchOptions.SelectOutbound.
+	SelectedOutbound *Flight `json:"selected_outbound,omitempty"`
 }
 
 // SearchQuery echoes the user's query back in the response envelope.
@@ -104,8 +127,20 @@ type DatesResult struct {
 	Query      SearchQuery `json:"query"`
 	Count      int         `json:"count"`
 	Dates      []DatePrice `json:"dates"`
+	// PATCH(amend-2026-06-11): see SearchResult.Note.
+	Note string `json:"note,omitempty"`
 	// PATCH(library): see SearchResult.AirportRemapped.
 	AirportRemapped *AirportRemapNote `json:"airport_remapped,omitempty"`
+}
+
+// Segment is one leg of a multi-city itinerary. Set SearchOptions.Segments
+// (length >= 2) to request a multi-city search via Google Flights' multi-city
+// flow (trip_type=3). When Segments is set, Origin / Destination /
+// DepartureDate / ReturnDate on SearchOptions are ignored.
+type Segment struct {
+	Origin        string
+	Destination   string
+	DepartureDate string // YYYY-MM-DD
 }
 
 // SearchOptions are the knobs users can pass to a flight search.
@@ -114,22 +149,47 @@ type DatesResult struct {
 // LimitedResults — Google Flights' API supports all of these but krisukox
 // did not expose them. fli matches this same surface.
 type SearchOptions struct {
-	Origin         string
-	Destination    string
-	DepartureDate  string
-	ReturnDate     string
-	TimeWindow     string
-	Airlines       []string
-	CabinClass     string
-	MaxStops       string
-	SortBy         string
-	Passengers     int
-	ExcludeBasic   bool
-	Currency       string
-	Bags           *BagsFilter          // PATCH: include checked-bag + carry-on fees in returned prices
-	Emissions      string               // PATCH: "ALL" (default) or "LESS" to filter low-emission itineraries
-	Layover        *LayoverRestrictions // PATCH: restrict connections to specific airports
-	LimitedResults bool                 // PATCH: when true, request the ~30 Google-curated set
+	Origin        string
+	Destination   string
+	DepartureDate string
+	ReturnDate    string
+	TimeWindow    string
+	// ReturnTimeWindow constrains the inbound leg's departure time
+	// independently of TimeWindow, which otherwise applies to both legs of a
+	// round trip. Same "H-H" 24h format as TimeWindow (e.g. "14-22"). Ignored
+	// for one-way searches and multi-city (Segments) searches.
+	ReturnTimeWindow string
+	Airlines         []string
+	CabinClass       string
+	MaxStops         string
+	SortBy           string
+	Passengers       int
+	ExcludeBasic     bool
+	Currency         string
+	Bags             *BagsFilter          // PATCH: include checked-bag + carry-on fees in returned prices
+	Emissions        string               // PATCH: "ALL" (default) or "LESS" to filter low-emission itineraries
+	Layover          *LayoverRestrictions // PATCH: restrict connections to specific airports
+	LimitedResults   bool                 // PATCH: when true, request the ~30 Google-curated set
+	// Segments triggers a multi-city search (Google Flights trip_type=3).
+	// Provide >= 2 entries; the existing Origin / Destination / DepartureDate
+	// / ReturnDate fields are bypassed when this is set. For Google Flights
+	// the result is a URL-only deeplink (the shopping POST requires an
+	// authenticated session); see multicity.go and the CLI's --provider flag
+	// for the cross-provider dispatch.
+	Segments []Segment
+	// PATCH(library): SelectOutbound requests Google Flights' real two-step
+	// round-trip flow instead of the default single request. 1-based index
+	// into the outbound itineraries a prior plain round-trip search
+	// returned (Flights entries with Direction == "outbound", in that
+	// order). flight-goat re-queries Google with that specific outbound
+	// selected (via its SelectionToken); Google responds with return-leg
+	// options genuinely priced and paired against it, returned as Flights
+	// (Direction == "return") with SearchResult.SelectedOutbound set to the
+	// chosen outbound for reference. Round trip only (ReturnDate set); zero
+	// (default) keeps today's single-request behavior — every outbound row
+	// carries Google's own auto-picked "cheapest return" total baked into
+	// Price, with no return-leg detail.
+	SelectOutbound int
 }
 
 // Search runs a flight search against Google Flights' GetShoppingResults.
@@ -147,6 +207,12 @@ func Search(ctx context.Context, opts SearchOptions) (*SearchResult, error) {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 90*time.Second)
 		defer cancel()
+	}
+	// PATCH(library): multi-city short-circuits to URL generation in
+	// searchNativeDirect — no air-pair POST happens, so skip the
+	// retired-IATA remap (each Segment carries its own pair).
+	if len(opts.Segments) >= 2 {
+		return searchNativeDirect(ctx, opts)
 	}
 	// PATCH(library): normalize retired IATA codes before talking to Google.
 	// Google's GetShoppingResults silently returns empty for decommissioned

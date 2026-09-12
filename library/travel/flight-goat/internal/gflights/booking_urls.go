@@ -1,4 +1,4 @@
-// Copyright 2026 matt-van-horn. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Matt Van Horn and contributors. Licensed under Apache-2.0. See LICENSE.
 
 // PATCH(library): booking-URL deeplinks for the Flight result rows.
 //
@@ -43,11 +43,11 @@ import (
 // populated for any valid query (Origin, Destination, DepartureDate all
 // non-empty); buildBookingURLs returns a zero value otherwise.
 type BookingURLs struct {
-	Primary      string `json:"primary"`
-	PrimaryKind  string `json:"primary_kind"`
-	AirlineURL   string `json:"airline_url,omitempty"`
-	AirlineKind  string `json:"airline_kind,omitempty"`
-	GoogleURL    string `json:"google_url"`
+	Primary     string `json:"primary"`
+	PrimaryKind string `json:"primary_kind"`
+	AirlineURL  string `json:"airline_url,omitempty"`
+	AirlineKind string `json:"airline_kind,omitempty"`
+	GoogleURL   string `json:"google_url"`
 }
 
 // PrimaryKind values: "prefill" and "landing" are airline-direct; "search"
@@ -149,7 +149,22 @@ func buildGoogleFlightsURL(opts SearchOptions) string {
 	pb = protowire.AppendVarint(pb, uint64(tripType))
 
 	tfs := base64.RawURLEncoding.EncodeToString(pb)
-	return fmt.Sprintf("%s?tfs=%s&curr=USD&hl=en", googleFlightsSearchBase, tfs)
+	// PATCH(amend-2026-07-31): propagate the search's --currency into the
+	// deeplink instead of hard-coding USD. A user who searched in EUR was
+	// handed a booking page quoting USD — the one surface where the price
+	// must match what the CLI just showed. Mirrors html_fallback.go's URL.
+	return fmt.Sprintf("%s?tfs=%s&curr=%s&hl=en", googleFlightsSearchBase, tfs, bookingCurrency(opts.Currency))
+}
+
+// bookingCurrency normalizes the user's --currency for URL embedding,
+// falling back to USD for empty or invalid values (matching the search
+// backend's own default).
+func bookingCurrency(code string) string {
+	normalized, err := NormalizeCurrencyCode(code)
+	if err != nil || normalized == "" {
+		return "USD"
+	}
+	return normalized
 }
 
 // Google Flights protobuf enum values, matching krisukox url.proto.

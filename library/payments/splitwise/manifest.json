@@ -1,0 +1,51 @@
+{
+  "manifest_version": "0.3",
+  "name": "splitwise-pp-mcp",
+  "display_name": "Splitwise",
+  "version": "3.0.0",
+  "description": "Every Splitwise feature, plus an offline SQLite ledger that powers balance, debt-aging, spend analytics, fairness, and full-text search no other Splitwise tool has.",
+  "author": {
+    "name": "CLI Printing Press"
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/splitwise-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/splitwise-pp-mcp",
+      "args": [],
+      "env": {
+        "SPLITWISE_API_KEY": "${user_config.splitwise_api_key}",
+        "SPLITWISE_BASE_URL": "${user_config.splitwise_base_url}",
+        "SPLITWISE_USER_AGENT": "${user_config.splitwise_user_agent}"
+      }
+    }
+  },
+  "user_config": {
+    "splitwise_api_key": {
+      "type": "string",
+      "title": "SPLITWISE_API_KEY",
+      "description": "Sets SPLITWISE_API_KEY for the Splitwise MCP server.",
+      "sensitive": true,
+      "required": true
+    },
+    "splitwise_base_url": {
+      "type": "string",
+      "title": "SPLITWISE_BASE_URL",
+      "description": "Optional. Sets SPLITWISE_BASE_URL for the Splitwise MCP server. Per-instance, non-secret setting; not a credential."
+    },
+    "splitwise_user_agent": {
+      "type": "string",
+      "title": "SPLITWISE_USER_AGENT",
+      "description": "Optional. Sets SPLITWISE_USER_AGENT for the Splitwise MCP server. Per-instance, non-secret setting; not a credential."
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

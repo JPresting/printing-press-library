@@ -6,36 +6,38 @@ trigger-dev-pp-cli wraps the full v3 management API (47 endpoints across runs, s
 
 Learn more at [Trigger.dev](https://trigger.dev).
 
+Created by [@mvanhorn](https://github.com/mvanhorn) (Matt Van Horn).
+
 ## Install
 
 The recommended path installs both the `trigger-dev-pp-cli` binary and the `pp-trigger-dev` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install trigger-dev
+npx -y @mvanhorn/printing-press-library install trigger-dev
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install trigger-dev --cli-only
+npx -y @mvanhorn/printing-press-library install trigger-dev --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install trigger-dev --skill-only
+npx -y @mvanhorn/printing-press-library install trigger-dev --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install trigger-dev --agent claude-code
-npx -y @mvanhorn/printing-press install trigger-dev --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install trigger-dev --agent claude-code
+npx -y @mvanhorn/printing-press-library install trigger-dev --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/developer-tools/trigger-dev/cmd/trigger-dev-pp-cli@latest
@@ -50,6 +52,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install trigger-dev --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -62,13 +72,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-trigger-dev --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install trigger-dev --agent openclaw
 ```
-Install the pp-trigger-dev skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-trigger-dev. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -167,7 +181,7 @@ These capabilities aren't available in any other tool for this API.
   _Reach for this when an agent is writing a shell loop over many runs and wants to branch on success/failure without parsing JSON._
 
   ```bash
-  trigger-dev-pp-cli runs get run_abc123 --json && echo COMPLETED || echo $?
+  trigger-dev-pp-cli runs get run_abc123 --json && echo COMPLETED || echo "$?"
   ```
 
 ## Usage

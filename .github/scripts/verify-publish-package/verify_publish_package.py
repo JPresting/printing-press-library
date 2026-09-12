@@ -20,7 +20,6 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 ROOT_ARTIFACTS = (
     ".printing-press.json",
-    ".printing-press-patches.json",
     "AGENTS.md",
     "README.md",
     "SKILL.md",
@@ -29,6 +28,18 @@ ROOT_ARTIFACTS = (
     "LICENSE",
     "NOTICE",
 )
+
+# The patches index ships in one of two shapes (mvanhorn/cli-printing-press#2496):
+# the legacy single-array file, or the per-patch directory it is being migrated to.
+# CI tolerates either through the transition; the post-merge normalize-patches
+# workflow converts the legacy file to the directory on main.
+PATCHES_LEGACY_FILE = ".printing-press-patches.json"
+PATCHES_DIR = ".printing-press-patches"
+
+
+def patches_present(cli_dir: Path) -> bool:
+    return (cli_dir / PATCHES_LEGACY_FILE).is_file() or (cli_dir / PATCHES_DIR).is_dir()
+
 
 PRINTER_SENTINELS = {"", "USER", "user", "unknown", "UNKNOWN", "changeme", "CHANGE_ME"}
 
@@ -73,6 +84,19 @@ def run_git(args: list[str]) -> subprocess.CompletedProcess[str]:
 def git_exists(base_ref: str, path: Path) -> bool:
     result = run_git(["cat-file", "-e", f"{base_ref}:{rel(path)}"])
     return result.returncode == 0
+
+
+def git_has_go_module(base_ref: str, cli_dir: Path) -> bool:
+    cli_prefix = rel(cli_dir)
+    result = run_git(["ls-tree", "-r", "--name-only", base_ref, "--", cli_prefix])
+    if result.returncode != 0:
+        return False
+    return any(
+        path == f"{cli_prefix}/go.mod" or (
+            path.startswith(f"{cli_prefix}/") and path.endswith("/go.mod")
+        )
+        for path in result.stdout.splitlines()
+    )
 
 
 def library_cli_dir_for(path: str) -> Path | None:
@@ -125,7 +149,7 @@ def is_new_cli(base_ref: str, cli_dir: Path) -> bool:
     return not (
         git_exists(base_ref, cli_dir)
         and git_exists(base_ref, cli_dir / ".printing-press.json")
-        and git_exists(base_ref, cli_dir / "go.mod")
+        and git_has_go_module(base_ref, cli_dir)
     )
 
 
@@ -145,6 +169,21 @@ def read_json(path: Path, problems: list[Problem]) -> dict | None:
     return data
 
 
+def cli_entrypoint(cli_dir: Path, cli_name: str) -> Path | None:
+    direct = cli_dir / "cmd" / cli_name / "main.go"
+    if direct.exists():
+        return direct
+
+    nested = sorted(
+        path
+        for path in cli_dir.glob(f"*/cmd/{cli_name}/main.go")
+        if path.is_file()
+    )
+    if len(nested) == 1:
+        return nested[0]
+    return None
+
+
 def validate_required_artifacts(cli_dir: Path, manifest: dict | None) -> list[Problem]:
     problems: list[Problem] = []
     for artifact in ROOT_ARTIFACTS:
@@ -157,15 +196,18 @@ def validate_required_artifacts(cli_dir: Path, manifest: dict | None) -> list[Pr
                         "new library CLI is missing AGENTS.md. Re-run the publish skill with a current Printing Press build so reviewers and future agents get the generated per-CLI operating guide.",
                     )
                 )
-            elif artifact == ".printing-press-patches.json":
-                problems.append(
-                    Problem(
-                        path,
-                        "new library CLI is missing .printing-press-patches.json. Fresh prints should include the empty patch index; hand-authored customizations are recorded there per the shape documented in AGENTS.md.",
-                    )
-                )
             else:
                 problems.append(Problem(path, f"new library CLI is missing required publish artifact {artifact}"))
+
+    if not patches_present(cli_dir):
+        problems.append(
+            Problem(
+                cli_dir / PATCHES_DIR,
+                "new library CLI is missing its patches index. Fresh prints should include "
+                f"{PATCHES_DIR}/ (with .gitkeep) — or the legacy {PATCHES_LEGACY_FILE} — per the "
+                "shape documented in AGENTS.md. Hand-authored customizations are recorded there.",
+            )
+        )
 
     cli_name = manifest.get("cli_name") if manifest else None
     if isinstance(cli_name, str) and cli_name:
@@ -211,7 +253,7 @@ def validate_manifest_identity(cli_dir: Path, manifest: dict | None, strict: boo
     cli_name = manifest.get("cli_name")
     if not cli_name:
         problems.append(Problem(manifest_path, "cli_name is empty"))
-    elif not (cli_dir / "cmd" / str(cli_name) / "main.go").exists():
+    elif cli_entrypoint(cli_dir, str(cli_name)) is None:
         problems.append(
             Problem(
                 cli_dir / "cmd" / str(cli_name) / "main.go",
@@ -337,42 +379,41 @@ def validate_patch_manifest(
     cli_dir: Path,
     changed_files: set[str] | None,
 ) -> list[Problem]:
-    """Validate `.printing-press-patches.json` minimally.
+    """Validate the patches index minimally, in either supported shape.
+
+    The index ships as the legacy single-array `.printing-press-patches.json`
+    or the per-patch `.printing-press-patches/` directory it is migrating to
+    (mvanhorn/cli-printing-press#2496). CI tolerates both.
 
     CI's role for the patches manifest is to catch the structural class of
-    bugs that would silently break downstream readers (the file is unparseable
-    JSON, or `patches` is set to something other than an array). Everything
-    else about the manifest's shape — per-patch fields, referenced-file
-    existence, inline source-marker pairing — is the authoring contract
-    described in this repo's AGENTS.md and is enforced by agent diligence
-    and code review, not by CI.
-
-    Rationale: the bi-directional source-marker / patches-entry pairing
-    that this verifier previously enforced added two commits to every
-    in-session customization PR (add the entry, add the matching marker)
-    without catching a class of bug git history + the manifest doesn't
-    already surface. AGENTS.md remains the source of truth for what
-    belongs in a well-formed patches entry.
+    bugs that would silently break downstream readers (a file is unparseable
+    JSON, the legacy `patches` is set to something other than an array, or a
+    per-patch file is not a JSON object). Everything else about the manifest's
+    shape — per-patch fields, referenced-file existence — is the authoring
+    contract described in this repo's AGENTS.md and is enforced by agent
+    diligence and code review, not by CI.
 
     The `changed_files` parameter is kept for API stability with the
-    surrounding caller but is unused — the two remaining checks (parse +
-    array-shape) are cheap and don't need diff-scoping.
+    surrounding caller but is unused — the remaining checks are cheap and
+    don't need diff-scoping.
     """
     del changed_files  # unused; kept for caller-API stability
     problems: list[Problem] = []
-    patch_path = cli_dir / ".printing-press-patches.json"
-    if not patch_path.exists():
-        return problems
 
-    manifest = read_json(patch_path, problems)
-    if manifest is None:
-        return problems
+    legacy_path = cli_dir / PATCHES_LEGACY_FILE
+    if legacy_path.exists():
+        manifest = read_json(legacy_path, problems)
+        if manifest is not None:
+            patches = manifest.get("patches", [])
+            if patches is not None and not isinstance(patches, list):
+                problems.append(Problem(legacy_path, "patches must be an array"))
 
-    patches = manifest.get("patches", [])
-    if patches is None:
-        patches = []
-    if not isinstance(patches, list):
-        problems.append(Problem(patch_path, "patches must be an array"))
+    patches_dir = cli_dir / PATCHES_DIR
+    if patches_dir.is_dir():
+        # read_json appends a problem when a file isn't a JSON object, which is
+        # exactly the structural check we want per patch file.
+        for patch_file in sorted(patches_dir.glob("*.json")):
+            read_json(patch_file, problems)
 
     return problems
 

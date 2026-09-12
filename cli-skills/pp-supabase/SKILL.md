@@ -1,9 +1,3 @@
-<!-- GENERATED FILE — DO NOT EDIT.
-     This file is a verbatim mirror of library/developer-tools/supabase/SKILL.md,
-     regenerated post-merge by tools/generate-skills/. Hand-edits here are
-     silently overwritten on the next regen. Edit the library/ source instead.
-     See AGENTS.md "Generated artifacts: registry.json, cli-skills/". -->
-<!-- // PATCH: hand-edited headline + Known Gaps section + narrowed trigger phrases vs generated defaults; aligned with README/SKILL contract. -->
 ---
 name: pp-supabase
 description: "The full Supabase Management API (108 endpoints) plus a local SQLite cache of orgs, projects, functions, branches, and secret names — powering cross-project queries no live API answers in one call, with Auth Admin lookup, PostgREST schema introspection, and Storage usage rollup on top. Trigger phrases: `supabase auth admin lookup`, `supabase secret name audit`, `supabase branches drift`, `supabase project estate rollup`, `supabase storage usage`, `supabase pgrst schema`, `use supabase`, `run supabase`. Anti-triggers: `supabase start` (use the official supabase CLI), `supabase db push` (official CLI), `supabase gen types` (official CLI), supabase realtime subscribe (WebSocket — out of scope)."
@@ -17,6 +11,11 @@ metadata:
       bins:
         - supabase-pp-cli
 ---
+<!-- GENERATED FILE — DO NOT EDIT.
+     This file is a verbatim mirror of library/developer-tools/supabase/SKILL.md,
+     regenerated post-merge by tools/generate-skills/. Hand-edits here are
+     silently overwritten on the next regen. Edit the library/ source instead.
+     See the repository agent guide, section "Generated artifacts: registry.json, cli-skills/". -->
 
 # Supabase — Printing Press CLI
 
@@ -26,7 +25,7 @@ This skill drives the `supabase-pp-cli` binary. **You must verify the CLI is ins
 
 1. Install via the Printing Press installer:
    ```bash
-   npx -y @mvanhorn/printing-press install supabase --cli-only
+   npx -y @mvanhorn/printing-press-library install supabase --cli-only
    ```
 2. Verify: `supabase-pp-cli --version`
 3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
@@ -34,8 +33,6 @@ This skill drives the `supabase-pp-cli` binary. **You must verify the CLI is ins
 If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
 
 If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
-
-The official supabase CLI is local-dev tooling (Docker, migrations, types). This CLI is the runtime API surface it omits, with `--json --select --dry-run` consistency across every command. The local store enables cross-project queries (`secrets where-name STRIPE_KEY`, `branches drift --older-than 7d`, `functions inventory --org acme`) that no single live API call answers.
 
 ## When to Use This CLI
 
@@ -85,9 +82,9 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Service-specific patterns
-- **`auth-admin lookup`** — Look up an Auth user by email and optionally join their row from a user-named PostgREST context table on user_id.
+- **`auth-admin lookup`** — Traverse the documented Auth Admin user pages and return only one exact normalized email match, optionally joined to a user-named PostgREST context table on user_id.
 
-  _Use during support-ticket triage to see the user plus their domain row in one envelope instead of three dashboard clicks._
+  _The lookup fails closed on zero or duplicate matches, malformed or repeated pages, incomplete traversal, and provider errors; unrelated user records are never printed._
 
   ```bash
   supabase-pp-cli auth-admin lookup user@example.com --context-table profiles --context-key user_id --json
@@ -174,7 +171,7 @@ Sync the local store, then list every project across every org holding a secret 
 supabase-pp-cli auth-admin lookup user@example.com --context-table profiles --context-key user_id --agent --select user.id,user.email,user.last_sign_in_at,context.tier
 ```
 
-Look up the user in Auth Admin and join their profiles row in one envelope; --select narrows the payload to just the fields the support workflow cares about.
+Traverse Auth Admin with documented pagination, require one exact case-insensitive email match, then join that user's profiles row; `--select` narrows the exact-match payload to the fields the support workflow needs.
 
 ### Stale preview branches
 

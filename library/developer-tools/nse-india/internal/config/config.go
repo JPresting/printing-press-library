@@ -13,15 +13,18 @@ import (
 )
 
 type Config struct {
-	BaseURL        string `json:"base_url"`
-	AuthHeaderVal  string `json:"auth_header"`
-	AuthSource     string `json:"-"`
-	AccessToken    string `json:"access_token"`
-	RefreshToken   string `json:"refresh_token"`
+	BaseURL        string    `json:"base_url"`
+	AuthHeaderVal  string    `json:"auth_header"`
+	AuthSource     string    `json:"-"`
+	AccessToken    string    `json:"access_token"`
+	RefreshToken   string    `json:"refresh_token"`
 	TokenExpiry    time.Time `json:"token_expiry"`
-	ClientID       string `json:"client_id"`
-	ClientSecret   string `json:"client_secret"`
-	Path           string `json:"-"`
+	ClientID       string    `json:"client_id"`
+	ClientSecret   string    `json:"client_secret"`
+	// BrowserCookie holds the NSE session cookie string (e.g. "bm_sv=...; nsit=...; nseappid=...").
+	// Set via 'auth login --chrome' or 'auth login --cookie <value>'.
+	BrowserCookie  string    `json:"browser_cookie,omitempty"`
+	Path           string    `json:"-"`
 }
 
 func Load(configPath string) (*Config, error) {
@@ -90,6 +93,16 @@ func (c *Config) ClearTokens() error {
 	c.AccessToken = ""
 	c.RefreshToken = ""
 	c.TokenExpiry = time.Time{}
+	return c.save()
+}
+
+func (c *Config) SaveBrowserCookie(cookie string) error {
+	c.BrowserCookie = cookie
+	return c.save()
+}
+
+func (c *Config) ClearBrowserCookie() error {
+	c.BrowserCookie = ""
 	return c.save()
 }
 

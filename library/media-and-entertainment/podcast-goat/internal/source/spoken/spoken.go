@@ -1,4 +1,4 @@
-// Copyright 2026 mvanhorn. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Matt Van Horn and contributors. Licensed under Apache-2.0. See LICENSE.
 // PATCH: v0.1 spoken.md paid adapter (demo key fallback).
 
 package spoken
@@ -113,6 +113,16 @@ func (a *Adapter) Search(ctx context.Context, q string) (*SearchHit, error) {
 	return &hit, nil
 }
 
+// Probe answers "does spoken.md actually have this episode?" without fetching
+// (and therefore without spending): it runs the same URL→hit resolution Fetch
+// uses, but stops at the search endpoint. The search endpoint works with the
+// demo key, so coverage can be checked before buying a full key. Returns the
+// matched hit on availability, or a NotApplicableError-wrapped err when
+// spoken.md has no result for the URL.
+func (a *Adapter) Probe(ctx context.Context, episodeURL string) (*SearchHit, error) {
+	return a.resolveByURL(ctx, episodeURL)
+}
+
 // resolveByURL is the URL → SearchHit resolution flow. It tries the raw URL
 // first (works for Apple Podcasts + Spotify URLs spoken.md indexes by id);
 // on no-results, fetches the publisher page and re-searches by extracted title.
@@ -154,12 +164,13 @@ func (a *Adapter) resolveByURL(ctx context.Context, episodeURL string) (*SearchH
 // hostHintsFromURL extracts publisher-name hint words from a URL host. Used
 // to reject spoken.md hits whose `podcast` field has nothing to do with the
 // host the user pointed us at. Examples:
-//   acquired.fm                 → ["acquired"]
-//   www.lexfridman.com          → ["lex", "fridman"]
-//   tim.blog                    → ["tim"]
-//   www.hubermanlab.com         → ["huberman", "lab"]
-//   open.spotify.com            → []   (skip — Spotify is a hosting platform, not the publisher)
-//   podcasts.apple.com          → []   (same)
+//
+//	acquired.fm                 → ["acquired"]
+//	www.lexfridman.com          → ["lex", "fridman"]
+//	tim.blog                    → ["tim"]
+//	www.hubermanlab.com         → ["huberman", "lab"]
+//	open.spotify.com            → []   (skip — Spotify is a hosting platform, not the publisher)
+//	podcasts.apple.com          → []   (same)
 func hostHintsFromURL(u string) []string {
 	if u == "" {
 		return nil

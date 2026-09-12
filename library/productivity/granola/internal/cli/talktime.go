@@ -1,4 +1,4 @@
-// Copyright 2026 dstevens. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/mvanhorn/printing-press-library/library/productivity/granola/internal/granola"
+	"github.com/spf13/cobra"
 )
 
 func newTalktimeCmd(flags *rootFlags) *cobra.Command {
@@ -26,10 +26,15 @@ to source for 2-attendee meetings and rolling up otherwise.`,
 			if dryRunOK(flags) {
 				return nil
 			}
-			c, err := openGranolaCache()
+			// PATCH(dual-path-store-read): store first, cache fallback.
+			// sourceSeconds keys off the normalized microphone/system
+			// vocabulary, which is exactly what the store holds for both
+			// cache-written and API-written rows.
+			c, err := openGranolaRead(cmd.Context())
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			if len(args) == 1 {
 				id := args[0]
 				segs := c.TranscriptByID(id)

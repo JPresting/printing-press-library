@@ -4,38 +4,38 @@
 
 The official Resend CLI is fast and one-shot per command; this CLI is the agent-native companion with --json --select --dry-run consistency, FTS5 search over sent emails, and rollups (audiences inventory, broadcasts performance, deliverability summary, contacts where, emails to <recipient>) that exist only because every Resend resource is mirrored locally.
 
-Printed by [@giacaglia](https://github.com/giacaglia) (Giuliano Giacaglia).
+Created by [@giacaglia](https://github.com/giacaglia) (Giuliano Giacaglia).
 
 ## Install
 
 The recommended path installs both the `resend-pp-cli` binary and the `pp-resend` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install resend
+npx -y @mvanhorn/printing-press-library install resend
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install resend --cli-only
+npx -y @mvanhorn/printing-press-library install resend --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install resend --skill-only
+npx -y @mvanhorn/printing-press-library install resend --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install resend --agent claude-code
-npx -y @mvanhorn/printing-press install resend --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install resend --agent claude-code
+npx -y @mvanhorn/printing-press-library install resend --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/productivity/resend/cmd/resend-pp-cli@latest
@@ -50,6 +50,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install resend --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -62,13 +70,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-resend --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install resend --agent openclaw
 ```
-Install the pp-resend skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-resend. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 

@@ -1,4 +1,4 @@
-// Copyright 2026 nikica-jokic. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Nikica Jokic and contributors. Licensed under Apache-2.0. See LICENSE.
 
 // PATCH novel-commands: hand-built transcripts find/status/export (local SQLite aggregation, not in the Fireflies API).
 package cli
@@ -710,15 +710,19 @@ func newTranscriptsExportCmd(flags *rootFlags) *cobra.Command {
 	var dbPath string
 	var vaultPath string
 	var outputFile string
+	var fileFlag string
 
 	cmd := &cobra.Command{
 		Use:   "export <id>",
 		Short: "Export a transcript as markdown to a file or vault path",
 		Long: `Export a transcript as formatted markdown. Use --vault to write to a directory
-using the auto-generated filename: YYYY-MM-DD_<sanitized-title>.md`,
+using the auto-generated filename: YYYY-MM-DD_<sanitized-title>.md
+
+Use --output (-o) or its alias --file to write to an explicit file path.`,
 		Example: strings.Trim(`
   fireflies-pp-cli transcripts export abc123 --vault ~/vaults/VBT/Projects/1_Active/Ryder/transcripts/
-  fireflies-pp-cli transcripts export abc123 --output ./meeting-notes.md`, "\n"),
+  fireflies-pp-cli transcripts export abc123 --output ./meeting-notes.md
+  fireflies-pp-cli transcripts export abc123 --file /tmp/dennis_1on1.md --agent`, "\n"),
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -754,7 +758,15 @@ using the auto-generated filename: YYYY-MM-DD_<sanitized-title>.md`,
 
 			md := renderTranscriptMarkdown(&t)
 
+			// --file is an alias for --output; the two are mutually exclusive
+			// (enforced below), so at most one is set here.
 			dest := outputFile
+			if dest == "" {
+				dest = fileFlag
+			}
+			if dest != "" {
+				dest = expandHome(dest)
+			}
 			if dest == "" && vaultPath != "" {
 				vaultPath = expandHome(vaultPath)
 				if err := os.MkdirAll(vaultPath, 0o755); err != nil {
@@ -778,7 +790,11 @@ using the auto-generated filename: YYYY-MM-DD_<sanitized-title>.md`,
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path")
 	cmd.Flags().StringVar(&vaultPath, "vault", "", "Directory to write markdown (filename auto-generated as YYYY-MM-DD_title.md)")
-	cmd.Flags().StringVar(&outputFile, "output", "", "Explicit output file path")
+	cmd.Flags().StringVarP(&outputFile, "output", "o", "", "Explicit output file path")
+	cmd.Flags().StringVar(&fileFlag, "file", "", "Explicit output file path (alias for --output)")
+	// --file is an alias for --output; rejecting both together avoids silently
+	// discarding one path.
+	cmd.MarkFlagsMutuallyExclusive("output", "file")
 	return cmd
 }
 
@@ -855,16 +871,16 @@ func newTranscriptsUpdateCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			if title != "" {
-				const q = `mutation UpdateMeetingTitle($id: String!, $title: String!) { updateMeetingTitle(id: $id, title: $title) { success message } }`
-				data, err := client.Query(cmd.Context(), q, map[string]any{"id": args[0], "title": title}, "updateMeetingTitle")
+				const q = `mutation UpdateMeetingTitle($input: UpdateMeetingTitleInput!) { updateMeetingTitle(input: $input) { title } }`
+				data, err := client.Query(cmd.Context(), q, map[string]any{"input": map[string]any{"id": args[0], "title": title}}, "updateMeetingTitle")
 				if err != nil {
 					return fmt.Errorf("updating title: %w", err)
 				}
 				return printJSONFiltered(cmd.OutOrStdout(), data, flags)
 			}
 			if privacy != "" {
-				const q = `mutation UpdateMeetingPrivacy($id: String!, $privacy: String!) { updateMeetingPrivacy(id: $id, privacy: $privacy) { success message } }`
-				data, err := client.Query(cmd.Context(), q, map[string]any{"id": args[0], "privacy": privacy}, "updateMeetingPrivacy")
+				const q = `mutation UpdateMeetingPrivacy($input: UpdateMeetingPrivacyInput!) { updateMeetingPrivacy(input: $input) { id title privacy } }`
+				data, err := client.Query(cmd.Context(), q, map[string]any{"input": map[string]any{"id": args[0], "privacy": privacy}}, "updateMeetingPrivacy")
 				if err != nil {
 					return fmt.Errorf("updating privacy: %w", err)
 				}
@@ -883,8 +899,8 @@ func newTranscriptsShareCmd(flags *rootFlags) *cobra.Command {
 	var expiryDays int
 
 	cmd := &cobra.Command{
-		Use:   "share <id>",
-		Short: "Share a transcript with external email addresses",
+		Use:     "share <id>",
+		Short:   "Share a transcript with external email addresses",
 		Example: `  fireflies-pp-cli transcripts share abc123 --emails user@company.com --expiry 7`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -930,20 +946,20 @@ func newTranscriptsShareCmd(flags *rootFlags) *cobra.Command {
 
 // transcriptRow is a minimal struct for parsing transcript JSON from the store.
 type transcriptRow struct {
-	ID          string          `json:"id"`
-	Title       string          `json:"title"`
-	Date        float64         `json:"date"`
-	DateString  string          `json:"dateString"`
-	Duration    float64         `json:"duration"`
-	Privacy     string          `json:"privacy"`
-	OrgEmail    string          `json:"organizer_email"`
-	Participants []string       `json:"participants"`
-	MeetingInfo *meetingInfo    `json:"meeting_info"`
-	Summary     *summaryFields  `json:"summary"`
-	Channels    []channelRef    `json:"channels"`
-	Speakers    []speakerRef    `json:"speakers"`
-	Analytics   json.RawMessage `json:"analytics"`
-	Sentences   json.RawMessage `json:"sentences"`
+	ID           string          `json:"id"`
+	Title        string          `json:"title"`
+	Date         float64         `json:"date"`
+	DateString   string          `json:"dateString"`
+	Duration     float64         `json:"duration"`
+	Privacy      string          `json:"privacy"`
+	OrgEmail     string          `json:"organizer_email"`
+	Participants []string        `json:"participants"`
+	MeetingInfo  *meetingInfo    `json:"meeting_info"`
+	Summary      *summaryFields  `json:"summary"`
+	Channels     []channelRef    `json:"channels"`
+	Speakers     []speakerRef    `json:"speakers"`
+	Analytics    json.RawMessage `json:"analytics"`
+	Sentences    json.RawMessage `json:"sentences"`
 }
 
 type meetingInfo struct {
@@ -953,14 +969,14 @@ type meetingInfo struct {
 }
 
 type summaryFields struct {
-	ActionItems    string   `json:"action_items"`
-	Keywords       []string `json:"keywords"`
-	Overview       string   `json:"overview"`
-	ShorthandBullet string  `json:"shorthand_bullet"`
-	Gist           string   `json:"gist"`
-	Topics         []string `json:"topics_discussed"`
-	Outline        string   `json:"outline"`
-	Notes          string   `json:"notes"`
+	ActionItems     string   `json:"action_items"`
+	Keywords        []string `json:"keywords"`
+	Overview        string   `json:"overview"`
+	ShorthandBullet string   `json:"shorthand_bullet"`
+	Gist            string   `json:"gist"`
+	Topics          []string `json:"topics_discussed"`
+	Outline         string   `json:"outline"`
+	Notes           string   `json:"notes"`
 }
 
 type channelRef struct {
@@ -1137,4 +1153,3 @@ func renderTranscriptMarkdown(t *transcriptRow) string {
 	}
 	return sb.String()
 }
-

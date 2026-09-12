@@ -1,8 +1,9 @@
-// Copyright 2026 dstevens. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -112,7 +113,7 @@ func TestMemoRun_OneMeetingProducesThreeFiles(t *testing.T) {
 	outDir := filepath.Join(tmp, "out")
 	root := filepath.Join(tmp, "root")
 	_ = os.MkdirAll(root, 0o755)
-	rec := runOneMemo("m1", outDir, root, false)
+	rec := runOneMemo(context.Background(), "m1", outDir, root, false)
 	if rec.Status != "new" {
 		t.Fatalf("expected status=new, got %q (err=%q)", rec.Status, rec.Error)
 	}

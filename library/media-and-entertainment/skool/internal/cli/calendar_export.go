@@ -1,4 +1,4 @@
-// Copyright 2026 quoxientzero. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Zain Haseeb and contributors. Licensed under Apache-2.0. See LICENSE.
 // Hand-written novel feature; not generated.
 
 package cli
@@ -22,9 +22,9 @@ func newCalendarExportCmd(flags *rootFlags) *cobra.Command {
 	var flagFormat string
 
 	cmd := &cobra.Command{
-		Use:   "export",
-		Short: "Export community calendar events as iCalendar (.ics) or JSON",
-		Example: "  skool-pp-cli calendar export --community bewarethedefault > btd.ics",
+		Use:         "export",
+		Short:       "Export community calendar events as iCalendar (.ics) or JSON",
+		Example:     "  skool-pp-cli calendar export --community bewarethedefault > btd.ics",
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dryRunOK(flags) {
@@ -42,7 +42,9 @@ func newCalendarExportCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("--community is required"))
 			}
 
-			path := "/_next/data/{buildId}/" + community + "/calendar.json"
+			// PATCH(amend-2026-08-12: build the path like the generated commands do)
+			path := "/_next/data/{buildId}/{community}/calendar.json"
+			path = replacePathParam(path, "community", community)
 			params := map[string]string{"g": community}
 			raw, err := c.Get(path, params)
 			if err != nil {
@@ -137,7 +139,12 @@ func newCalendarExportCmd(flags *rootFlags) *cobra.Command {
 	var flagICS bool
 	cmd.Flags().BoolVar(&flagICS, "ics", false, "Output as iCalendar (.ics) — same as --format ics")
 	cmd.Flags().StringVar(&flagFormat, "format", "", "Output format: ics (default) or json")
-	cmd.PreRunE = func(cmd *cobra.Command, args []string) error { if flagICS { flagFormat = "ics" }; return nil }
+	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		if flagICS {
+			flagFormat = "ics"
+		}
+		return nil
+	}
 	return cmd
 }
 

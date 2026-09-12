@@ -18,22 +18,20 @@ metadata:
 
 This skill drives the `roam-pp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   npx -y @mvanhorn/printing-press install roam --cli-only
+   npx -y @mvanhorn/printing-press-library install roam --cli-only
    ```
 2. Verify: `roam-pp-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.3 or newer):
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/productivity/roam/cmd/roam-pp-cli@latest
 ```
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
-
-Roam HQ ships a remote MCP but no CLI. roam-pp-cli unifies all five Roam HQ APIs (HQ, On-Air, Chat, SCIM, Webhooks) into a single binary with a local SQLite cache and FTS5 search across messages and transcripts. Cron-friendly chat relay, decision extraction, attendance drift, and SCIM roster diff are built-in.
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 ## When to Use This CLI
 

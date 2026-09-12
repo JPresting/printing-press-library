@@ -4,36 +4,39 @@
 
 Sync your entire meeting history once, then search, analyze, and correlate across every conversation without touching the API. Find stale action items, track topic escalation over weeks, reconstruct the full history with any person or account — all offline, all composable with jq and SQL.
 
+Created by [@neektza](https://github.com/neektza) (Nikica Jokic).
+Contributors: [@shanegardner405-arch](https://github.com/shanegardner405-arch) (Shane Gardner).
+
 ## Install
 
 The recommended path installs both the `fireflies-pp-cli` binary and the `pp-fireflies` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install fireflies
+npx -y @mvanhorn/printing-press-library install fireflies
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install fireflies --cli-only
+npx -y @mvanhorn/printing-press-library install fireflies --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install fireflies --skill-only
+npx -y @mvanhorn/printing-press-library install fireflies --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install fireflies --agent claude-code
-npx -y @mvanhorn/printing-press install fireflies --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install fireflies --agent claude-code
+npx -y @mvanhorn/printing-press-library install fireflies --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/productivity/fireflies/cmd/fireflies-pp-cli@latest
@@ -48,6 +51,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install fireflies --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -60,13 +71,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-fireflies --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install fireflies --agent openclaw
 ```
-Install the pp-fireflies skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-fireflies. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -126,7 +141,7 @@ fireflies-pp-cli transcripts list --mine --limit 10
 fireflies-pp-cli search "action item" --from 7d --agent
 
 # find dropped commitments
-fireflies-pp-cli action-items stale --days 14 --agent
+fireflies-pp-cli action-items --agent
 
 ```
 
@@ -177,12 +192,13 @@ These capabilities aren't available in any other tool for this API.
   ```bash
   fireflies-pp-cli digest --since 24h --agent
   ```
-- **`transcripts export`** — Export a transcript as markdown to a vault directory with auto-generated YYYY-MM-DD_title.md filename.
+- **`transcripts export`** — Export a transcript as markdown to a vault directory with auto-generated YYYY-MM-DD_title.md filename, or to an explicit file path with `--output` (`-o`) or its alias `--file`.
 
   _Use after a client meeting to save the formatted transcript directly to the right project folder._
 
   ```bash
   fireflies-pp-cli transcripts export abc123 --vault ~/vaults/VBT/Projects/1_Active/Ryder/transcripts/ --agent
+  fireflies-pp-cli transcripts export abc123 --file /tmp/dennis_1on1.md --agent
   ```
 
 ### Person-centric intelligence
@@ -292,19 +308,19 @@ Manage users
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-fireflies-pp-cli active-meetings get
+fireflies-pp-cli active-meetings get active_meeting_id
 
 # JSON for scripting and agents
-fireflies-pp-cli active-meetings get --json
+fireflies-pp-cli active-meetings get active_meeting_id --json
 
 # Filter to specific fields
-fireflies-pp-cli active-meetings get --json --select id,name,status
+fireflies-pp-cli active-meetings get active_meeting_id --json --select id,name,status
 
 # Dry run — show the request without sending
-fireflies-pp-cli active-meetings get --dry-run
+fireflies-pp-cli active-meetings get active_meeting_id --dry-run
 
 # Agent mode — JSON + compact + no prompts in one flag
-fireflies-pp-cli active-meetings get --agent
+fireflies-pp-cli active-meetings get active_meeting_id --agent
 ```
 
 ## Agent Usage

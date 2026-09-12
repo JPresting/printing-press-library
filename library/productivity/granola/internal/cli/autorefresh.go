@@ -1,4 +1,4 @@
-// Copyright 2026 dstevens. Licensed under Apache-2.0.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0.
 
 package cli
 
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mvanhorn/printing-press-library/library/productivity/granola/internal/granola"
 	"github.com/spf13/cobra"
 )
 
@@ -28,15 +29,17 @@ import (
 //
 // Each entry is justified:
 //
-//   sync, sync-api: would recurse (auto-refresh calls them)
-//   auth          : refresh requires auth — chicken/egg
-//   doctor        : doctor reports current state; auto-refresh would
-//                   side-effect that state (write SyncState) before
-//                   doctor reads it
-//   help, version, completion, agent-context, which:
-//                 : no data dependency
-//   profile       : profile management is local-only
-//   feedback      : feedback is local-only (or remote-but-not-data)
+//	sync, sync-api: would recurse (auto-refresh calls them)
+//	auth          : refresh requires auth — chicken/egg
+//	doctor        : doctor reports current state; auto-refresh would
+//	                side-effect that state (write SyncState) before
+//	                doctor reads it
+//	help, version, completion, agent-context, which:
+//	              : no data dependency
+//	profile       : profile management is local-only
+//	feedback      : feedback is local-only (or remote-but-not-data)
+//	db            : store inspection is read-only by contract; refreshing
+//	                first would mutate the very state being inspected
 //
 // Names match cobra Use:; aliases (e.g. "sync-api") are matched as-is.
 var noRefreshCommands = map[string]struct{}{
@@ -51,6 +54,7 @@ var noRefreshCommands = map[string]struct{}{
 	"profile":       {},
 	"feedback":      {},
 	"which":         {},
+	"db":            {},
 }
 
 // refreshSurface labels which auth path a refreshResult came from so
@@ -81,6 +85,13 @@ type refreshResult struct {
 	rows     int
 	duration time.Duration
 	err      error
+
+	// PATCH(api-sync-survives-unreadable-cache): the run succeeded but the
+	// desktop cache was unreadable, so only API-derived documents were synced.
+	// Rendered as its own state because "ok" would hide that transcripts,
+	// folders, recipes, panels, and chats are all missing by circumstance
+	// rather than because the user has none.
+	degraded bool
 }
 
 // runAutoRefresh is the entry point the PersistentPreRunE hook calls.
@@ -228,7 +239,7 @@ func encryptedCachePresent() bool {
 func (p refreshPlan) run(ctx context.Context, flags *rootFlags) []refreshResult {
 	var out []refreshResult
 	if p.cache {
-		res, err := runCacheSync(ctx)
+		res, err := runCacheSync(ctx, granola.AutoRefreshTranscriptBudget)
 		// Cache refresh is "ok" when the decrypt + SQLite upsert
 		// succeeded, even if document-API hydration was unable to
 		// reach /v2/get-documents (HydrateErr) or the sync_state
@@ -243,6 +254,7 @@ func (p refreshPlan) run(ctx context.Context, flags *rootFlags) []refreshResult 
 			rows:     res.TotalRows(),
 			duration: res.Duration,
 			err:      err,
+			degraded: res.Degraded,
 		})
 	}
 	if p.api {
@@ -285,7 +297,7 @@ var stderrIsTerminal = func() bool {
 // emitProvenanceLine writes the one-line summary to the provided
 // writer. Format:
 //
-//   auto-refresh: cache=ok (1.2s, 47 docs)  api=ok (820ms, 12 docs)
+//	auto-refresh: cache=ok (1.2s, 47 docs)  api=ok (820ms, 12 docs)
 //
 // Failures render as cache=failed: <short reason>. Surfaces not in
 // the plan are omitted entirely (no "api=skipped" noise for users
@@ -306,6 +318,12 @@ func emitProvenanceLine(w io.Writer, results []refreshResult) {
 // per-surface.
 func formatRefreshFragment(r refreshResult) string {
 	dur := formatRefreshDuration(r.duration)
+	if r.ok && r.degraded {
+		// PATCH(api-sync-survives-unreadable-cache): distinct from both ok and
+		// failed. Rows were written, so "failed" would be wrong; the cache was
+		// never read, so "ok" would imply transcripts and folders are current.
+		return fmt.Sprintf("%s=degraded, API only (%s, %d rows)", r.surface, dur, r.rows)
+	}
 	if r.ok {
 		return fmt.Sprintf("%s=ok (%s, %d rows)", r.surface, dur, r.rows)
 	}

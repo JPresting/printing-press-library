@@ -1,4 +1,4 @@
-// Copyright 2026 dstevens. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/mvanhorn/printing-press-library/library/productivity/granola/internal/granola"
+	"github.com/spf13/cobra"
 )
 
 func newDuplicatesCmd(flags *rootFlags) *cobra.Command {
@@ -49,13 +49,18 @@ func newDuplicatesScanCmd(flags *rootFlags) *cobra.Command {
 				}
 				from = t
 			}
-			c, err := openGranolaCache()
+			// PATCH(dual-path-store-read): store first, cache fallback. The
+			// "source":"cache" label on these rows is the dedup provenance
+			// (local Granola vs. filesystem), not the data path, so it stays
+			// as-is when the rows come from the store.
+			c, err := openGranolaRead(cmd.Context())
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			groups := map[string][]map[string]any{}
 			// Cache contributions.
-			for id, d := range c.Documents {
+			for id, d := range c.Documents() {
 				ts, _ := granola.ParseISO(d.CreatedAt)
 				if !from.IsZero() && ts.Before(from) {
 					continue

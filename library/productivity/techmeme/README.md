@@ -4,36 +4,39 @@
 
 The Techmeme CLI puts the tech industry's most trusted news curation into your terminal. Sync headlines to a local SQLite store, then search, filter by time, track topics, and analyze which stories and sources are dominating. The 'since' command answers the question every tech professional asks: 'what did I miss?'
 
+Created by [@davemorin](https://github.com/davemorin) (Dave Morin).
+Contributors: [@mvanhorn](https://github.com/mvanhorn) (Matt Van Horn).
+
 ## Install
 
 The recommended path installs both the `techmeme-pp-cli` binary and the `pp-techmeme` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install techmeme
+npx -y @mvanhorn/printing-press-library install techmeme
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install techmeme --cli-only
+npx -y @mvanhorn/printing-press-library install techmeme --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install techmeme --skill-only
+npx -y @mvanhorn/printing-press-library install techmeme --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install techmeme --agent claude-code
-npx -y @mvanhorn/printing-press install techmeme --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install techmeme --agent claude-code
+npx -y @mvanhorn/printing-press-library install techmeme --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/productivity/techmeme/cmd/techmeme-pp-cli@latest
@@ -48,6 +51,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install techmeme --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -60,13 +71,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-techmeme --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install techmeme --agent openclaw
 ```
-Install the pp-techmeme skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-techmeme. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -114,7 +129,7 @@ techmeme-pp-cli sync
 # What happened in the last 4 hours?
 techmeme-pp-cli since 4h
 
-# Search all cached headlines
+# Search Techmeme's live archive (records carry an ISO date field)
 techmeme-pp-cli search 'Apple AI'
 
 # What topics are hot right now?
@@ -266,8 +281,12 @@ techmeme-pp-cli digest --date 2026-05-08
 # Who are the top 10 publications on Techmeme?
 techmeme-pp-cli sources --top 10 --json
 
-# Search for a topic across all cached headlines
-techmeme-pp-cli search 'Apple AI'
+# Search Techmeme's live archive for a topic — each JSON record carries a
+# date field (ISO YYYY-MM-DD, empty when the results page has no parseable date)
+techmeme-pp-cli search 'Apple AI' --json
+
+# Only archive results from the last 30 days (undated records are dropped)
+techmeme-pp-cli search 'Apple AI' --days 30 --json
 
 # Find all headlines by a specific journalist
 techmeme-pp-cli author 'Kara Swisher'
@@ -276,7 +295,7 @@ techmeme-pp-cli author 'Kara Swisher'
 techmeme-pp-cli trending --hours 24
 
 # Export all synced data for analysis
-techmeme-pp-cli export --format jsonl --output techmeme-backup.jsonl
+techmeme-pp-cli export river --format jsonl --output techmeme-backup.jsonl
 
 # Agent pipeline: sync, then get compact JSON digest
 techmeme-pp-cli sync && techmeme-pp-cli digest --agent
@@ -324,8 +343,12 @@ No API key is required. Techmeme's public feeds are openly accessible.
 - Check the resource ID is correct
 - Run the `list` command to see available items
 
-**Empty results from `since` or `search` (exit code 0, no output)**
+**Empty results from `since` (exit code 0, no output)**
 - Run `techmeme-pp-cli sync` first to populate the local cache from the 5-day river archive
+
+**Empty results from `search`**
+- `search` queries Techmeme's live archive, not the local cache. Zero hits print `No results for "<query>"` in human mode and a valid empty JSON array `[]` in `--json`/`--agent` mode (exit code 0)
+- With `--days N`, results without a parseable date are dropped along with anything older than N days
 
 **Only 15 headlines from `headlines`**
 - The RSS feed carries only the top 15 items. Use `river` or `sync` for the full 5-day archive (150+ headlines)

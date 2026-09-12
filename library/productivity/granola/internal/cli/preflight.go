@@ -1,4 +1,4 @@
-// Copyright 2026 dstevens. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/mvanhorn/printing-press-library/library/productivity/granola/internal/granola"
+	"github.com/spf13/cobra"
 )
 
 // PreflightDefaultRoot is the directory granola.py expects.
@@ -48,10 +48,14 @@ duplicate found.`,
 				home, _ := os.UserHomeDir()
 				root = filepath.Join(home, PreflightDefaultRoot)
 			}
-			c, err := openGranolaCache()
+			// PATCH(dual-path-store-read): store first, cache fallback. The
+			// 5-mic/5-system gate reads transcript_segments, so preflight
+			// passes on API-hydrated meetings with no readable cache.
+			c, err := openGranolaRead(cmd.Context())
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			d := c.DocumentByID(id)
 			if d == nil {
 				return notFoundErr(fmt.Errorf("meeting %s not in cache", id))

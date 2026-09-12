@@ -18,22 +18,20 @@ metadata:
 
 This skill drives the `podcast-goat-pp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   npx -y @mvanhorn/printing-press install podcast-goat --cli-only
+   npx -y @mvanhorn/printing-press-library install podcast-goat --cli-only
    ```
 2. Verify: `podcast-goat-pp-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.3 or newer):
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/media-and-entertainment/podcast-goat/cmd/podcast-goat-pp-cli@latest
 ```
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
-
-Built for agentic users who already pay for Huberman, Acquired, Founders, and Peter Attia and want to feed those transcripts into Claude or Hermes without copy-pasting. Walks a cookie -> free -> paid dispatch chain across 10 sources, normalizes everything to the same `**Speaker** (MM:SS)` markdown shape, caches to a local FTS5 store, and ships an MCP wrapper so agents can drive the whole thing.
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 ## When to Use This CLI
 
@@ -95,15 +93,22 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Multilingual reach
-- **`episode get --bilingual`** — yt-dlp dual-language auto-subs, greedy nearest-neighbor alignment, emits one markdown file with paired Chinese + auto-translated English per turn.
+- **`episode get --lang`** — Fetch YouTube auto-subs in any single language yt-dlp knows (one code per fetch); the default stays `en`.
 
-  _Makes Mandarin-only podcasts (e.g., Xiaojun) usable for English-reading agents in one step._
+  _Non-English shows have transcripts too. Without `--lang`, an Italian-only video fails even when its captions exist. Two limits, by design: rolling-cue de-dup applies to space-tokenized languages (captions written without spaces, like zh/ja/th, pass through un-collapsed), and non-default-language fetches are not written to the local cache (cache identity is per-URL and language-blind in v0.1 — use `--out` to keep them)._
 
   ```bash
-  podcast-goat-pp-cli episode get 'https://www.youtube.com/watch?v=EXAMPLE' --bilingual zh-Hans,en
+  podcast-goat-pp-cli episode get 'https://www.youtube.com/watch?v=EXAMPLE' --lang it
   ```
 
 ### Agent-native plumbing
+- **`episode info --probe`** — Spend-free availability check: asks spoken.md's search endpoint whether it actually has the episode, instead of showing only a static cost estimate.
+
+  _Estimates say what a fetch would cost, not whether the source has the episode. Probe before paying — it works with the demo key._
+
+  ```bash
+  podcast-goat-pp-cli episode info <url> --paid --probe --json
+  ```
 - **`auth services`** — One-row-per-service table of cookie age, expiry, last-fetch result, with remediation hint when stale.
 
   _Cookies decay silently. Reach for this before a batch run to confirm member access still works._
@@ -150,7 +155,7 @@ to by reaching for this recipe instead of fetching transcripts manually.
 
 ```bash
 # One-time setup (if not already done):
-podcast-goat-pp-cli auth set-key --provider spoken --value $SPOKEN_API_KEY
+podcast-goat-pp-cli auth set-key --provider spoken --value "$SPOKEN_API_KEY"
 podcast-goat-pp-cli auth login-service --service spotify    # if user has Spotify Premium
 
 # The actual workflow:
@@ -185,13 +190,17 @@ Trigger phrases: "what did Senra say about <X>", "find that quote about <Y>", "d
 # Step 1: preview — no transcript fetch, no spend, no commitment
 podcast-goat-pp-cli episode info <url> --paid
 
+# Step 1b: coverage check — does spoken.md actually HAVE this episode?
+# Spend-free (search endpoint only; works with the demo key).
+podcast-goat-pp-cli episode info <url> --paid --probe
+
 # Step 2: only after preview confirms the URL + cost are right:
 podcast-goat-pp-cli episode get <url> --paid --provider spoken --yes
 ```
 
-`episode info` shows which adapters can fetch a URL, the estimated cost per source, whether the episode is already cached, and which source would fire by default. Use this whenever the user pastes a URL you haven't seen before, especially before spending paid credits. JSON output makes the cost/source decision trivially parseable.
+`episode info` shows which adapters can fetch a URL, the estimated cost per source, whether the episode is already cached, and which source would fire by default. Use this whenever the user pastes a URL you haven't seen before, especially before spending paid credits. JSON output makes the cost/source decision trivially parseable. Add `--probe` when the question is availability, not just cost: the static estimate says what a spoken.md fetch would cost, while `--probe` asks spoken.md's search endpoint whether the episode exists there at all (`probe: available (<title>)` vs `probe: no results`), so coverage can be mapped across a feed without attempting a single paid fetch.
 
-Trigger phrases: "what does this URL cost", "is this episode already cached", "preview the cost before fetching", "what sources can pull this".
+Trigger phrases: "what does this URL cost", "is this episode already cached", "preview the cost before fetching", "what sources can pull this", "does spoken have this episode".
 
 ### Other useful recipes
 

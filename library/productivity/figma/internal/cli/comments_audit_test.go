@@ -1,4 +1,4 @@
-// Copyright 2026 giuliano-giacaglia. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Giuliano Giacaglia and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -55,5 +55,11 @@ func TestParseAge_RFC3339(t *testing.T) {
 	}
 	if got.Year() != 2026 || got.Month() != 4 || got.Day() != 1 {
 		t.Errorf("parseAge RFC3339 returned %v", got)
+	}
+}
+
+func TestEscapeMarkdownTableCell(t *testing.T) {
+	if got, want := escapeMarkdownTableCell("one|two\\three\nfour"), `one\|two\\three four`; got != want {
+		t.Fatalf("escapeMarkdownTableCell() = %q, want %q", got, want)
 	}
 }

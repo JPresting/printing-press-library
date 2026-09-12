@@ -1,12 +1,12 @@
-// Copyright 2026 dstevens. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/mvanhorn/printing-press-library/library/productivity/granola/internal/granola"
+	"github.com/spf13/cobra"
 )
 
 // newNotesShowCmd is the human-typed-notes-only path. The three-streams
@@ -32,10 +32,15 @@ notes_markdown then notes_plain when the TipTap blob is empty.`,
 				return nil
 			}
 			id := args[0]
-			c, err := openGranolaCache()
+			// PATCH(dual-path-store-read): store first, cache fallback.
+			// notes_markdown / notes_plain live in the meetings table; the
+			// TipTap blob is cache-only, so the render below degrades to the
+			// markdown fallback on store-sourced rows.
+			c, err := openGranolaRead(cmd.Context())
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			d := c.DocumentByID(id)
 			if d == nil {
 				return notFoundErr(fmt.Errorf("meeting %s not in cache", id))

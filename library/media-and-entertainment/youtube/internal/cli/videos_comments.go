@@ -1,4 +1,4 @@
-// Copyright 2026 justinwfu. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Justin and contributors. Licensed under Apache-2.0. See LICENSE.
 
 // PATCH: feat-comments-and-handle-resolution — novel command. commentThreads.list returns by relevance or time, never by likeCount. Local sort surfaces audience-validated comments that the API ordering buries. Threads cmd.Context() through Client.WithContext so Ctrl+C cancels in-flight pages.
 
@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -38,15 +39,18 @@ func newYoutubeVideosCommentsCmd(flags *rootFlags) *cobra.Command {
 	var order string
 
 	cmd := &cobra.Command{
-		Use:         "videos-comments <videoId>",
+		Use:         "videos-comments <videoId|url>",
 		Short:       "Fetch top comments on a video, ranked by likeCount (uses commentThreads.list, public read-only)",
-		Example:     "  youtube-pp-cli youtube videos-comments dQw4w9WgXcQ --top 10",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Example:     "  youtube-pp-cli youtube videos-comments dQw4w9WgXcQ --top 10\n  youtube-pp-cli youtube videos-comments 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' --top 10",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:happy-args": "videoId=dQw4w9WgXcQ;--top=3", "pp:typed-exit-codes": "0,2,3,5"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
-			videoID := args[0]
+			videoID := parseVideoID(strings.TrimSpace(args[0]))
+			if videoID == "" {
+				return usageErr(fmt.Errorf("could not extract a video ID from %q", args[0]))
+			}
 
 			if top <= 0 {
 				return usageErr(fmt.Errorf("--top must be > 0"))
@@ -64,8 +68,6 @@ func newYoutubeVideosCommentsCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			c = c.WithContext(cmd.Context())
-
 			out := videoCommentsResponse{VideoID: videoID, Order: order}
 
 			// Fetch up to ceil(top / 100) pages so --top above 100 still works.
@@ -91,10 +93,10 @@ func newYoutubeVideosCommentsCmd(flags *rootFlags) *cobra.Command {
 				if pageToken != "" {
 					params["pageToken"] = pageToken
 				}
-				data, err := c.GetWithHeaders("/youtube/v3/commentThreads", params, nil)
+				data, err := c.GetWithHeaders(cmd.Context(), "/youtube/v3/commentThreads", params, nil)
 				if err != nil {
 					if page == 0 {
-						return classifyAPIError(err, flags)
+						return classifyAPIError(cmd.ErrOrStderr(), err, flags)
 					}
 					out.Warnings = append(out.Warnings, fmt.Sprintf("page %d fetch failed: %v", page+1, err))
 					break

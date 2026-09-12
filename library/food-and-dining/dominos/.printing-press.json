@@ -2,6 +2,16 @@
   "schema_version": 1,
   "api_name": "dominos",
   "cli_name": "dominos-pp-cli",
+  "creator": {
+    "handle": "mvanhorn",
+    "name": "Matt Van Horn"
+  },
+  "contributors": [
+    {
+      "handle": "rogilvy",
+      "name": "Robert Ogilvy"
+    }
+  ],
   "printer": "mvanhorn",
   "printer_name": "Matt Van Horn",
   "display_name": "Domino's",

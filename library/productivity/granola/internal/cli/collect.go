@@ -1,4 +1,4 @@
-// Copyright 2026 dstevens. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/mvanhorn/printing-press-library/library/productivity/granola/internal/granola"
+	"github.com/spf13/cobra"
 )
 
 func newCollectCmd(flags *rootFlags) *cobra.Command {
@@ -50,14 +50,17 @@ per segment, filtered to segments with >= --min-words words.`,
 				}
 				to = t
 			}
-			c, err := openGranolaCache()
+			// PATCH(dual-path-store-read): store first, cache fallback.
+			c, err := openGranolaRead(cmd.Context())
 			if err != nil {
 				return err
 			}
+			defer c.Close()
+			docs := c.Documents()
 			perDay := map[string][]string{}
 			perDayOrder := []string{}
 			for _, id := range c.SortedDocumentIDs() {
-				d := c.Documents[id]
+				d := docs[id]
 				segs := c.TranscriptByID(id)
 				if len(segs) == 0 {
 					continue

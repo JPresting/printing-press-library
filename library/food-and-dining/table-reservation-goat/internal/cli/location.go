@@ -1,4 +1,4 @@
-// Copyright 2026 pejman-pour-moezzi. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Pejman Pour-Moezzi and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -49,7 +49,7 @@ func newLocationResolveCmd(flags *rootFlags) *cobra.Command {
 			"responses, not errors).",
 		Example: "  table-reservation-goat-pp-cli location resolve 'bellevue, wa' --json\n" +
 			"  table-reservation-goat-pp-cli location resolve bellevue --batch-accept-ambiguous",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:no-error-path-probe": "true"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			input := args[0]

@@ -1,4 +1,4 @@
-// Copyright 2026 pejman-pour-moezzi. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Pejman Pour-Moezzi and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -111,6 +111,17 @@ var curatedPlaces = []Place{
 		RadiusKm:   75,
 		Population: 309317,
 		Tier:       PlaceTierMetroCentroid,
+	},
+	{
+		Slug:         "charlotte",
+		Name:         "Charlotte",
+		State:        "NC",
+		Lat:          35.2271,
+		Lng:          -80.8431,
+		RadiusKm:     75,
+		Population:   874579,
+		ContextHints: []string{"Charlotte metro", "Mecklenburg County"},
+		Tier:         PlaceTierMetroCentroid,
 	},
 	// --- Legacy metros required by goat_test.go's metroCityName fixture.
 	// Kept as full curated entries (not aliases on a phantom slug) so

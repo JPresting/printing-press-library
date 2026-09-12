@@ -1,4 +1,4 @@
-// Copyright 2026 rob-coco. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Rob Zehner and contributors. Licensed under Apache-2.0. See LICENSE.
 
 // Stub for GET /audio-features?ids=. Deprecated for new apps per the
 // 2024-11-27 Spotify Web API change. See deprecated_stubs.go.
@@ -40,7 +40,7 @@ func newAudioFeaturesGetSeveralCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, err := c.Get("/audio-features", map[string]string{"ids": flagIds})
+			data, err := c.Get(cmd.Context(), "/audio-features", map[string]string{"ids": flagIds})
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}

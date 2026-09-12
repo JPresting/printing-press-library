@@ -1,11 +1,13 @@
-// Copyright 2026 matt-van-horn. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Matt Van Horn and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package gflights
 
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 // Verifies that the multi-passenger price normalization divides the group
@@ -139,4 +141,208 @@ func TestParseOffersResponseEmptyBody(t *testing.T) {
 	if err == nil {
 		t.Error("empty body should error, got nil")
 	}
+}
+
+// Regression for #1084. Google's batchexecute payload drops trailing
+// zero-valued elements (jspb encoding), so a whole-hour time such as 17:00
+// arrives as a single-element array [17] rather than [17, 0]. The parser must
+// read the hour from t[0] regardless of whether the minute element is present;
+// otherwise ~10-14% of legs (every whole-hour departure/arrival) silently
+// default to 00:00.
+func TestFormatLegDateTimeWholeHourMinuteOmitted(t *testing.T) {
+	date := []any{float64(2026), float64(12), float64(26)}
+	cases := []struct {
+		name    string
+		timeArr any
+		want    string
+	}{
+		{"whole-hour evening (17:00) encoded as [17]", []any{float64(17)}, "2026-12-26T17:00:00"},
+		{"whole-hour early morning (5:00) encoded as [5]", []any{float64(5)}, "2026-12-26T05:00:00"},
+		{"midnight hour with non-zero minute [0,30] kept intact", []any{float64(0), float64(30)}, "2026-12-26T00:30:00"},
+		{"normal time with minutes [15,5] untouched", []any{float64(15), float64(5)}, "2026-12-26T15:05:00"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatLegDateTime(date, tc.timeArr); got != tc.want {
+				t.Errorf("formatLegDateTime(%v) = %q, want %q", tc.timeArr, got, tc.want)
+			}
+		})
+	}
+}
+
+// A leg whose time-of-day is genuinely absent from the source (empty/missing
+// time array) must return an empty string, never a fabricated 00:00 that is
+// indistinguishable from a real midnight.
+func TestFormatLegDateTimeMissingTimeReturnsEmpty(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		date    any
+		timeArr any
+	}{
+		{"empty date and time", []any{}, []any{}},
+		{"nil date and time", nil, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatLegDateTime(tc.date, tc.timeArr); got != "" {
+				t.Errorf("formatLegDateTime(%v,%v) = %q, want \"\" (no fabricated 00:00)", tc.date, tc.timeArr, got)
+			}
+		})
+	}
+}
+
+// parseOfferLeg-level proof: a leg array whose departure-time element is the
+// truncated whole-hour form [17] yields a real 17:00 departure, while the
+// minute-bearing arrival [20,55] is unaffected.
+func TestParseOfferLegWholeHourDeparture(t *testing.T) {
+	leg := make([]any, 23)
+	leg[3] = "ICN"
+	leg[6] = "BKK"
+	leg[8] = []any{float64(17)}               // departure time-of-day, minute omitted (17:00)
+	leg[10] = []any{float64(20), float64(55)} // arrival time-of-day (20:55)
+	leg[11] = float64(355)                    // duration minutes
+	leg[20] = []any{float64(2026), float64(12), float64(26)}
+	leg[21] = []any{float64(2026), float64(12), float64(26)}
+
+	got, ok := parseOfferLeg(leg)
+	if !ok {
+		t.Fatal("parseOfferLeg returned ok=false")
+	}
+	if got.DepartureTime != "2026-12-26T17:00:00" {
+		t.Errorf("DepartureTime = %q, want 2026-12-26T17:00:00 (must not default to 00:00)", got.DepartureTime)
+	}
+	if got.ArrivalTime != "2026-12-26T20:55:00" {
+		t.Errorf("ArrivalTime = %q, want 2026-12-26T20:55:00", got.ArrivalTime)
+	}
+}
+
+// End-to-end regression on the captured dense response: before the #1084 fix,
+// 26 of 251 leg departures (and 21 arrivals) carried whole-hour times that the
+// parser truncated to 00:00. After the fix no leg in this fixture should report
+// a midnight departure or arrival, because every leg in the capture has a real
+// time-of-day in the source.
+func TestParseOffersResponseNoFabricatedMidnight(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("testdata", "sea_bkk_2026-12-24_response.json"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	flights, err := parseOffersResponse(body, "USD")
+	if err != nil {
+		t.Fatalf("parseOffersResponse: %v", err)
+	}
+	// Count T00:00:00 occurrences rather than failing on each one.
+	// A jspb time array of [] with a present date is a *genuine* midnight and
+	// correctly produces T00:00:00 — that is not a bug. We only want to catch
+	// the pre-#1084 regression where a whole-hour time like [17] was silently
+	// truncated to T00:00:00.
+	//
+	// For this specific SEA-BKK fixture (2026-12-24) every leg has a real
+	// non-midnight time-of-day in the source, so the expected count is 0.
+	// A fixture that genuinely includes a midnight departure would require a
+	// different assertion strategy (e.g. cross-referencing the raw jspb array).
+	midnightDeps := 0
+	midnightArrs := 0
+	wholeHourDeps := 0
+	for _, f := range flights {
+		for _, leg := range f.Legs {
+			if strings.HasSuffix(leg.DepartureTime, "T00:00:00") {
+				midnightDeps++
+			}
+			if strings.HasSuffix(leg.ArrivalTime, "T00:00:00") {
+				midnightArrs++
+			}
+			if strings.HasSuffix(leg.DepartureTime, ":00:00") && leg.DepartureTime != "" {
+				wholeHourDeps++
+			}
+		}
+	}
+	if midnightDeps != 0 {
+		t.Errorf("got %d midnight departures (T00:00:00), want 0 — fabricated midnights still present in fixture", midnightDeps)
+	}
+	if midnightArrs != 0 {
+		t.Errorf("got %d midnight arrivals (T00:00:00), want 0 — fabricated midnights still present in fixture", midnightArrs)
+	}
+	// Sanity: the capture genuinely contains whole-hour departures (the [HH]
+	// truncated form), so this regression is actually exercising the fix.
+	if wholeHourDeps == 0 {
+		t.Error("expected at least one whole-hour departure in fixture; regression not exercised")
+	}
+}
+
+// TestBuildOfferSegments_ReturnTimeWindowAppliesToInboundOnly verifies that
+// ReturnTimeWindow constrains only the return leg's time field, leaving the
+// outbound leg governed by TimeWindow (or unconstrained if TimeWindow is
+// unset) — the core of the --return-time flag.
+func TestBuildOfferSegments_ReturnTimeWindowAppliesToInboundOnly(t *testing.T) {
+	opts := SearchOptions{
+		Origin:           "SEA",
+		Destination:      "HNL",
+		DepartureDate:    "2026-08-01",
+		ReturnDate:       "2026-08-10",
+		TimeWindow:       "6-12",
+		ReturnTimeWindow: "17-23",
+	}
+	depDate, _ := time.Parse("2006-01-02", opts.DepartureDate)
+	retDate, _ := time.Parse("2006-01-02", opts.ReturnDate)
+
+	segments, err := buildOfferSegments(opts, depDate, retDate, tripTypeRoundTrip, maxStopsAny, nil)
+	if err != nil {
+		t.Fatalf("buildOfferSegments: %v", err)
+	}
+	if len(segments) != 2 {
+		t.Fatalf("got %d segments, want 2 (outbound + inbound)", len(segments))
+	}
+
+	outboundTime := segmentTimeField(t, segments[0])
+	if outboundTime[0] != 6 || outboundTime[1] != 12 {
+		t.Errorf("outbound time field = %v, want [6 12 ...] from TimeWindow", outboundTime)
+	}
+
+	inboundTime := segmentTimeField(t, segments[1])
+	if inboundTime[0] != 17 || inboundTime[1] != 23 {
+		t.Errorf("inbound time field = %v, want [17 23 ...] from ReturnTimeWindow, not TimeWindow", inboundTime)
+	}
+}
+
+// TestBuildOfferSegments_ReturnTimeWindowFallsBackToTimeWindow verifies the
+// prior, still-supported behavior: when ReturnTimeWindow is unset, a single
+// --time value continues to constrain both legs identically.
+func TestBuildOfferSegments_ReturnTimeWindowFallsBackToTimeWindow(t *testing.T) {
+	opts := SearchOptions{
+		Origin:        "SEA",
+		Destination:   "HNL",
+		DepartureDate: "2026-08-01",
+		ReturnDate:    "2026-08-10",
+		TimeWindow:    "6-12",
+	}
+	depDate, _ := time.Parse("2006-01-02", opts.DepartureDate)
+	retDate, _ := time.Parse("2006-01-02", opts.ReturnDate)
+
+	segments, err := buildOfferSegments(opts, depDate, retDate, tripTypeRoundTrip, maxStopsAny, nil)
+	if err != nil {
+		t.Fatalf("buildOfferSegments: %v", err)
+	}
+	inboundTime := segmentTimeField(t, segments[1])
+	if inboundTime[0] != 6 || inboundTime[1] != 12 {
+		t.Errorf("inbound time field = %v, want [6 12 ...] (fallback to TimeWindow)", inboundTime)
+	}
+}
+
+// segmentTimeField extracts the [earliest, latest] pair from a segment's
+// index-2 time-restriction field, built by buildOneSegment.
+func segmentTimeField(t *testing.T, segment any) [2]int {
+	t.Helper()
+	seg, ok := segment.([]any)
+	if !ok || len(seg) < 3 {
+		t.Fatalf("segment has unexpected shape: %#v", segment)
+	}
+	tf, ok := seg[2].([]any)
+	if !ok || len(tf) < 2 {
+		t.Fatalf("segment time field has unexpected shape: %#v", seg[2])
+	}
+	earliest, ok1 := tf[0].(int)
+	latest, ok2 := tf[1].(int)
+	if !ok1 || !ok2 {
+		t.Fatalf("segment time field values not int: %#v", tf)
+	}
+	return [2]int{earliest, latest}
 }

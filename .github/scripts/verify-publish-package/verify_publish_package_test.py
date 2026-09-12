@@ -132,6 +132,48 @@ class PublishPackageVerifierTest(unittest.TestCase):
         self.assertIn("### Publication Path", suggestions[0])
         self.assertIn("| `search` | Example search | Searches example data. |", suggestions[0])
 
+    def test_existing_cli_with_nested_go_module_is_not_new(self) -> None:
+        cli_dir = self.tmp / "library" / "ai" / "example"
+        self.write(
+            "library/ai/example/.printing-press.json",
+            json.dumps({"api_name": "example", "cli_name": "example-pp-cli"}),
+        )
+        self.write(
+            "library/ai/example/runtime/go.mod",
+            "module github.com/example/runtime\n",
+        )
+        self.write(
+            "library/ai/example/runtime/cmd/example-pp-cli/main.go",
+            "package main\n",
+        )
+        self.git("add", ".")
+        self.git("commit", "-m", "add nested-module cli")
+        base = self.git("rev-parse", "HEAD").stdout.strip()
+
+        self.write("library/ai/example/runtime/internal/client/client.go", "package client\n")
+
+        self.assertFalse(verifier.is_new_cli(base, cli_dir))
+
+    def test_existing_placeholder_without_manifest_or_module_is_still_new(self) -> None:
+        cli_dir = self.tmp / "library" / "ai" / "placeholder"
+        self.write("library/ai/placeholder/README.md", "# Research placeholder\n")
+        self.git("add", ".")
+        self.git("commit", "-m", "add placeholder")
+        base = self.git("rev-parse", "HEAD").stdout.strip()
+
+        self.write(
+            "library/ai/placeholder/.printing-press.json",
+            json.dumps({"api_name": "placeholder", "cli_name": "placeholder-pp-cli"}),
+        )
+        self.write(
+            "library/ai/placeholder/cmd/placeholder-pp-cli/main.go",
+            "package main\n",
+        )
+
+        self.assertTrue(verifier.is_new_cli(base, cli_dir))
+        problems = verifier.validate_cli_dir(cli_dir, strict=True, changed_files=None)
+        self.assertTrue(any("go.mod" in problem.message for problem in problems))
+
     def test_new_cli_directory_with_pp_cli_suffix_fails(self) -> None:
         cli_dir = self.tmp / "library" / "cloud" / "example-pp-cli"
         manifest = {
@@ -181,6 +223,25 @@ class PublishPackageVerifierTest(unittest.TestCase):
         messages = [p.message for p in problems]
 
         self.assertFalse(any("-pp-cli/-pp-mcp binary suffix" in msg for msg in messages))
+
+    def test_existing_cli_entrypoint_may_live_in_single_nested_module(self) -> None:
+        cli_dir = self.tmp / "library" / "cloud" / "v0"
+        manifest = {
+            "schema_version": 1,
+            "api_name": "v0",
+            "category": "cloud",
+            "cli_name": "v0-pp-cli",
+        }
+        self.write("library/cloud/v0/.printing-press.json", json.dumps(manifest))
+        self.write("library/cloud/v0/vzero/cmd/v0-pp-cli/main.go", "package main\n")
+
+        problems = verifier.validate_cli_dir(cli_dir, strict=False, changed_files=set())
+        messages = [p.message for p in problems]
+
+        self.assertFalse(
+            any("does not have a matching cmd/v0-pp-cli/main.go entry point" in msg for msg in messages),
+            msg=messages,
+        )
 
     def test_patch_manifest_with_marker_and_no_entry_passes(self) -> None:
         """The bidirectional pairing rule that used to require markers and
@@ -300,6 +361,57 @@ class PublishPackageVerifierTest(unittest.TestCase):
             [],
             problems,
             msg="malformed JSON should still surface as a problem",
+        )
+
+    def test_patches_directory_shape_passes(self) -> None:
+        """The per-patch directory layout (mvanhorn/cli-printing-press#2496) is
+        accepted alongside the legacy single-array file. A dir of well-formed
+        per-patch objects + .gitkeep, with no legacy file, validates clean.
+        """
+        cli_dir = self.tmp / "library" / "cloud" / "legacy"
+        self.write(
+            "library/cloud/legacy/.printing-press.json",
+            json.dumps({"schema_version": 1, "api_name": "legacy", "cli_name": "legacy-pp-cli"}),
+        )
+        self.write("library/cloud/legacy/.printing-press-patches/.gitkeep", "")
+        self.write(
+            "library/cloud/legacy/.printing-press-patches/alpha.json",
+            json.dumps({"schema_version": 2, "id": "alpha", "summary": "A", "reason": "ra"}),
+        )
+
+        problems = verifier.validate_patch_manifest(cli_dir, changed_files=None)
+        self.assertEqual([], problems, msg=f"got {[p.message for p in problems]}")
+
+    def test_patches_directory_with_non_object_file_fails(self) -> None:
+        """A per-patch file that isn't a JSON object would break dir readers,
+        so read_json surfaces it as a structural problem.
+        """
+        cli_dir = self.tmp / "library" / "cloud" / "legacy"
+        self.write(
+            "library/cloud/legacy/.printing-press.json",
+            json.dumps({"schema_version": 1, "api_name": "legacy", "cli_name": "legacy-pp-cli"}),
+        )
+        self.write("library/cloud/legacy/.printing-press-patches/.gitkeep", "")
+        self.write(
+            "library/cloud/legacy/.printing-press-patches/bad.json",
+            json.dumps(["not", "an", "object"]),
+        )
+
+        problems = verifier.validate_patch_manifest(cli_dir, changed_files=None)
+        self.assertNotEqual([], problems, msg="non-object patch file should surface a problem")
+
+    def test_new_cli_with_patches_dir_satisfies_presence(self) -> None:
+        """A new CLI shipping the directory shape (no legacy file) is not flagged
+        as missing its patches index by the required-artifacts check.
+        """
+        cli_dir = self.tmp / "library" / "cloud" / "bad"
+        self.write("library/cloud/bad/.printing-press.json", '{"api_name": "bad", "cli_name": "bad-pp-cli"}')
+        self.write("library/cloud/bad/.printing-press-patches/.gitkeep", "")
+
+        problems = verifier.validate_required_artifacts(cli_dir, manifest=None)
+        self.assertFalse(
+            any("patches index" in p.message for p in problems),
+            msg="dir-form patches index must satisfy the presence check",
         )
 
 

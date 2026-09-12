@@ -1,4 +1,4 @@
-// Copyright 2026 dstevens. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/mvanhorn/printing-press-library/library/productivity/granola/internal/granola"
+	"github.com/spf13/cobra"
 )
 
 func newAttendeeCmd(flags *rootFlags) *cobra.Command {
@@ -161,7 +161,7 @@ func newAttendeeBriefCmd(flags *rootFlags) *cobra.Command {
 			rows.Close()
 			w := cmd.OutOrStdout()
 			for _, id := range ids {
-				a, err := buildArtifacts(id, flags.dataSource != "local", panel)
+				a, err := buildArtifacts(cmd.Context(), id, flags.dataSource != "local", panel)
 				if err != nil {
 					_ = emitNDJSONLine(w, map[string]any{"id": id, "title": titles[id], "started_at": starteds[id], "error": err.Error()})
 					continue

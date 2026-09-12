@@ -15,7 +15,7 @@ metadata:
      This file is a verbatim mirror of library/sales-and-crm/smartlead/SKILL.md,
      regenerated post-merge by tools/generate-skills/. Hand-edits here are
      silently overwritten on the next regen. Edit the library/ source instead.
-     See AGENTS.md "Generated artifacts: registry.json, cli-skills/". -->
+     See the repository agent guide, section "Generated artifacts: registry.json, cli-skills/". -->
 
 # SmartLead — Printing Press CLI
 
@@ -23,18 +23,20 @@ metadata:
 
 This skill drives the `smartlead-pp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   npx -y @mvanhorn/printing-press install smartlead --cli-only
+   npx -y @mvanhorn/printing-press-library install smartlead --cli-only
    ```
 2. Verify: `smartlead-pp-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.6 or newer):
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+```bash
+go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/smartlead/cmd/smartlead-pp-cli@latest
+```
 
-Beyond wrapping all 41 SmartLead REST endpoints with JSON-first, agent-native output, this CLI adds a local SQLite mirror no other SmartLead tool has. Sync once, then run health, silent, dupes, sender-health, warmup-gate, and drift offline — cross-campaign questions that otherwise cost a multi-call API loop per answer.
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 ## When to Use This CLI
 

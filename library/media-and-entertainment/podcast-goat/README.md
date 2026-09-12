@@ -4,38 +4,45 @@
 
 Built for agentic users who already pay for Huberman, Acquired, Founders, and Peter Attia and want to feed those transcripts into Claude or Hermes without copy-pasting. Walks a cookie -> free -> paid dispatch chain across 10 sources, normalizes everything to the same `**Speaker** (MM:SS)` markdown shape, caches to a local FTS5 store, and ships an MCP wrapper so agents can drive the whole thing.
 
-Printed by [@mvanhorn](https://github.com/mvanhorn) (Matt Van Horn).
+Created by [@mvanhorn](https://github.com/mvanhorn) (Matt Van Horn).
+Contributors: [@tmchow](https://github.com/tmchow) (Trevin Chow), [@giuseppebisemi](https://github.com/giuseppebisemi) (Giuseppe Bisemi).
 
 ## Install
 
 The recommended path installs both the `podcast-goat-pp-cli` binary and the `pp-podcast-goat` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install podcast-goat
+npx -y @mvanhorn/printing-press-library install podcast-goat
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install podcast-goat --cli-only
+npx -y @mvanhorn/printing-press-library install podcast-goat --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install podcast-goat --skill-only
+npx -y @mvanhorn/printing-press-library install podcast-goat --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install podcast-goat --agent claude-code
-npx -y @mvanhorn/printing-press install podcast-goat --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install podcast-goat --agent claude-code
+npx -y @mvanhorn/printing-press-library install podcast-goat --agent claude-code --agent codex
 ```
 
-### Without Node
+### Without Node (Go fallback)
 
-The generated install path is category-agnostic until this CLI is published. If `npx` is not available before publish, install Node or use the category-specific Go fallback from the public-library entry after publish.
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/media-and-entertainment/podcast-goat/cmd/podcast-goat-pp-cli@latest
+```
+
+This installs the CLI only — no skill.
 
 ### Pre-built binary
 
@@ -43,6 +50,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install podcast-goat --cli-only
+```
+
+Then install the focused Hermes skill.
 
 From the Hermes CLI:
 
@@ -56,13 +71,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-podcast-goat --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install podcast-goat --agent openclaw
 ```
-Install the pp-podcast-goat skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-podcast-goat. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -113,18 +132,14 @@ Three auth surfaces, in cost order. (1) `auth login-service --service <huberman|
 # Confirm yt-dlp present, RSS reachability, cookie freshness
 podcast-goat-pp-cli doctor
 
-
 # Free path; canonical markdown straight to cache
 podcast-goat-pp-cli episode get https://www.dwarkesh.com/p/andrej-karpathy
-
 
 # One-time cookie capture from your logged-in Chrome
 podcast-goat-pp-cli auth login-service --service huberman
 
-
 # Cookie path; free because you subscribe
 podcast-goat-pp-cli episode get https://www.hubermanlab.com/episode/<your-premium-slug>
-
 
 # Bundle cached transcripts into one prompt-shaped file
 podcast-goat-pp-cli magic 'AI chip supply chain' --out chips.md
@@ -145,7 +160,7 @@ podcast-goat-pp-cli magic 'AI chip supply chain' --out chips.md
 **Deferred to v0.2** — each one ships a clean typed `NotImplementedError` today with a remediation hint pointing at the workaround:
 
 - **`huberman` / `acquired` / `founders` / `peterattia` HTML parsers** — cookie capture and authenticated GET both work (`auth login-service --service <name>` writes `~/.config/podcast-goat/cookies/cookies-<service>.json`, the adapter loads it and fires the authenticated request). The HTML-to-segment parser awaits first-time browser capture from a logged-in session to calibrate the per-publisher shape. Until then, most of these shows' free episodes are available via the **Spotify** path above.
-- **`--bilingual zh-Hans,en` aligner** — the flag is wired but errors with a deferral message. v0.1 yt-dlp ships the English path; v0.2 adds Chinese + auto-translation.
+- **Bilingual zh-Hans,en aligner** — not yet implemented and no longer advertised on the CLI surface (a reserved `--bilingual` flag used to error with a deferral message; it was removed so `--help` only promises what ships). Single-language non-English fetches work today via `episode get --lang <code>`.
 - **`whisperapi` audio extraction** — provider switch (`--provider-name elevenlabs|openai|deepgram`) and key checks are live, but the yt-dlp audio extract → upload → diarize pipeline ships in v0.2. Use `--provider spoken` or `--provider taddy` for paid fallback today.
 - **Chrome App-Bound v10 cookie strip** — Chrome 127+ App-Bound encryption requires a 32-byte host-prefix strip on the CDP path; lands in v0.2 alongside the cookie-tier HTML parsers that need it.
 - **Persisted Spotify bearer cache** — the TOTP-bootstrapped bearer is cached in-memory for its ~1h TTL. Within one process (MCP server, scripted batch) the cache survives across fetches; across CLI invocations each `episode get` re-bootstraps (a few hundred ms). v0.2 adds on-disk persistence so even one-shot CLI calls hit a warm cache.
@@ -192,15 +207,22 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Multilingual reach
-- **`episode get --bilingual`** — yt-dlp dual-language auto-subs, greedy nearest-neighbor alignment, emits one markdown file with paired Chinese + auto-translated English per turn.
+- **`episode get --lang`** — Fetch YouTube auto-subs in any single language yt-dlp knows (one code per fetch); the default stays `en`.
 
-  _Makes Mandarin-only podcasts (e.g., Xiaojun) usable for English-reading agents in one step._
+  _Non-English shows have transcripts too. Without `--lang`, an Italian-only video fails even when its captions exist. Two limits, by design: rolling-cue de-dup applies to space-tokenized languages (captions written without spaces, like zh/ja/th, pass through un-collapsed), and non-default-language fetches are not written to the local cache (cache identity is per-URL and language-blind in v0.1 — use `--out` to keep them)._
 
   ```bash
-  podcast-goat-pp-cli episode get 'https://www.youtube.com/watch?v=EXAMPLE' --bilingual zh-Hans,en
+  podcast-goat-pp-cli episode get 'https://www.youtube.com/watch?v=EXAMPLE' --lang it
   ```
 
 ### Agent-native plumbing
+- **`episode info --probe`** — Spend-free availability check: asks spoken.md's search endpoint whether it actually has the episode, instead of showing only a static cost estimate.
+
+  _Estimates say what a fetch would cost, not whether the source has the episode. Probe before paying — it works with the demo key._
+
+  ```bash
+  podcast-goat-pp-cli episode info <url> --paid --probe --json
+  ```
 - **`auth services`** — One-row-per-service table of cookie age, expiry, last-fetch result, with remediation hint when stale.
 
   _Cookies decay silently. Reach for this before a batch run to confirm member access still works._
@@ -228,7 +250,6 @@ Pull, search, and inspect podcast episode transcripts
 
 - **`podcast-goat-pp-cli episode get`** - Fetch one transcript by URL via the cookie -> free -> paid dispatch chain
 - **`podcast-goat-pp-cli episode latest`** - Pull the most recent episode for a subscribed feed
-
 
 ## Output Formats
 
@@ -301,7 +322,8 @@ Environment variables:
 - **`episode get` returns nothing on a member URL** — Run `auth services` to confirm the service cookie isn't stale; re-run `auth login-service --service <name>` if so.
 - **yt-dlp YouTube path fails with 'no subtitles'** — Some YouTube videos have no auto-subs. Use `--provider whisper --provider-name elevenlabs` to transcribe from audio (requires `ELEVENLABS_API_KEY`).
 - **Paid fallback fires when you expected cookie hit** — Run `episode get <url> --explain` to see the dispatcher trace — usually a cookie expiry or a URL host that doesn't match a known publisher.
-- **Bilingual alignment looks off** — yt-dlp auto-translate quality varies. Pass `--align greedy|exact` to switch alignment strategy; `exact` requires both tracks to have matching segment counts.
+- **YouTube fetch fails on a non-English show** — The default subtitle language is `en`. Pass `episode get <url> --lang <code>` (e.g. `--lang it`) to fetch the captions that actually exist.
+- **Not sure spoken.md has the episode before paying** — Run `episode info <url> --paid --probe`; the spoken row reports `probe: available (<title>)` or `probe: no results` via the spend-free search endpoint (works with the demo key).
 
 ---
 

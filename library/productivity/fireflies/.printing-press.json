@@ -6,6 +6,10 @@
   "category": "productivity",
   "display_name": "Fireflies Pp Cli",
   "cli_name": "fireflies-pp-cli",
+  "creator": {
+    "handle": "neektza",
+    "name": "Nikica Jokic"
+  },
   "printer": "neektza",
   "printer_name": "Nikica Jokic",
   "spec_path": "/Users/neektza/printing-press/.runstate/cli-printing-press-c22e9309/runs/20260509-005754/fireflies.graphql",
@@ -59,6 +63,12 @@
       "name": "Vault Export",
       "command": "transcripts export",
       "description": "Export a transcript as markdown to a vault directory with auto-generated YYYY-MM-DD_title.md filename."
+    }
+  ],
+  "contributors": [
+    {
+      "handle": "shanegardner405-arch",
+      "name": "Shane Gardner"
     }
   ]
 }

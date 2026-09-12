@@ -4,36 +4,39 @@
 
 notion-pp-cli syncs your Notion workspace into a local SQLite store and exposes commands that answer compound questions the Notion UI cannot: cross-database joins, status drift, dead links, workspace health, and who owns what across every client. Works offline and ships a full MCP server so agents can load rich project context in a single call instead of 30.
 
+Created by [@neektza](https://github.com/neektza) (Nikica Jokic).
+Contributors: [@tmchow](https://github.com/tmchow) (Trevin Chow).
+
 ## Install
 
 The recommended path installs both the `notion-pp-cli` binary and the `pp-notion` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install notion
+npx -y @mvanhorn/printing-press-library install notion
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install notion --cli-only
+npx -y @mvanhorn/printing-press-library install notion --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install notion --skill-only
+npx -y @mvanhorn/printing-press-library install notion --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install notion --agent claude-code
-npx -y @mvanhorn/printing-press install notion --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install notion --agent claude-code
+npx -y @mvanhorn/printing-press-library install notion --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/productivity/notion/cmd/notion-pp-cli@latest
@@ -48,6 +51,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install notion --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -60,13 +71,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-notion --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install notion --agent openclaw
 ```
-Install the pp-notion skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-notion. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -114,7 +129,7 @@ Requires a Notion Internal Integration token. Create one at notion.so/my-integra
 
 ```bash
 # Paste your NOTION_TOKEN from notion.so/my-integrations
-notion-pp-cli auth set-token
+notion-pp-cli auth set-token "$NOTION_TOKEN"
 
 # Mirror your entire workspace to local SQLite — takes 30-120 seconds depending on workspace size
 notion-pp-cli sync --full
@@ -122,11 +137,11 @@ notion-pp-cli sync --full
 # Find everything untouched for 30+ days
 notion-pp-cli stale --days 30 --json
 
-# Get a hygiene scorecard for the whole workspace
-notion-pp-cli workspace-health
+# See what changed in the last week
+notion-pp-cli changed --since 7d --json
 
-# Raw SQL against the local store for custom queries
-notion-pp-cli sql "SELECT title, last_edited_time FROM pages ORDER BY last_edited_time DESC LIMIT 20" --agent
+# Search the local store for a page or record
+notion-pp-cli search "project kickoff" --agent
 
 ```
 
@@ -279,6 +294,7 @@ This CLI is designed for AI agent consumption:
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
+- **Machine-readable help** - add `--json` or `--agent` to help requests (for example, `notion-pp-cli pages update --help --json`) to receive a JSON command/flag envelope; plain `--help` stays human-readable
 
 Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
 

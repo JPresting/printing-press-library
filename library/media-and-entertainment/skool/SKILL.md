@@ -18,18 +18,20 @@ metadata:
 
 This skill drives the `skool-pp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   npx -y @mvanhorn/printing-press install skool --cli-only
+   npx -y @mvanhorn/printing-press-library install skool --cli-only
    ```
 2. Verify: `skool-pp-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.6 or newer):
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+```bash
+go install github.com/mvanhorn/printing-press-library/library/media-and-entertainment/skool/cmd/skool-pp-cli@latest
+```
 
-Community + course platform (skool.com). No public API — reverse-engineered from www.skool.com Next.js data routes (reads) and api2.skool.com REST (writes), authenticated via the auth_token JWT cookie.
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 ## When to Use This CLI
 
@@ -67,6 +69,14 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   skool-pp-cli sql 'SELECT community, COUNT(*) FROM posts GROUP BY community'
+  ```
+
+- **`sync --resources posts,members`** — Hydrate the local SQLite mirror with a community's posts and members, unwrapped out of the Next.js page envelope.
+
+  _Pick this before `search` or `sql` — both read the mirror, and until posts and members are hydrated the mirror is empty._
+
+  ```bash
+  skool-pp-cli sync --community <community-slug> --resources posts,members
   ```
 
 ### Agent-native plumbing
@@ -113,6 +123,7 @@ This CLI uses Chrome-compatible HTTP transport for browser-facing endpoints. It 
 
 **members** — Community members and moderation
 
+- `skool-pp-cli members list` — List members of a community
 - `skool-pp-cli members approve` — Approve a pending member request
 - `skool-pp-cli members ban` — Ban a member from the community
 - `skool-pp-cli members pending` — List pending member join requests
@@ -125,6 +136,7 @@ This CLI uses Chrome-compatible HTTP transport for browser-facing endpoints. It 
 
 **posts** — Posts (forum threads) inside a community
 
+- `skool-pp-cli posts list` — List posts in a community (newest first)
 - `skool-pp-cli posts comment` — Add a comment to a post
 - `skool-pp-cli posts create` — Create a new post (body = TipTap JSON; use --md to convert markdown)
 - `skool-pp-cli posts delete` — Delete a post
@@ -162,7 +174,7 @@ skool-pp-cli which "<capability in your own words>"
 ### Daily digest cron
 
 ```bash
-skool-pp-cli sync bewarethedefault && skool-pp-cli digest since 24h --json --select new_posts,new_members,top_comments
+skool-pp-cli sync --community <community-slug> && skool-pp-cli digest since 24h --community <community-slug> --json --select new_posts,new_members,top_comments
 ```
 
 One sync + one query. Pipes cleanly to a scheduled agent that drafts a Slack/email digest.
@@ -174,6 +186,15 @@ skool-pp-cli classroom export ai-foundations --out ./ai-foundations/
 ```
 
 Recursive walk: modules → lessons → attachments + Mux URLs. One folder per course, ready for LLM ingestion.
+
+### Hydrate the local mirror, then search it
+
+```bash
+skool-pp-cli sync --community <community-slug> --resources posts,members
+skool-pp-cli search "onboarding" --limit 10
+```
+
+`sync` walks the community page, unwraps `pageProps.postTrees[].post` for posts and the members array for members, and upserts both into SQLite. FTS `search` and `sql` read that mirror, so this is the step that makes them useful. Failures are reported per resource as `{"event":"sync_error","resource":...,"error":...}` under `--agent`.
 
 ### Cross-community engagement SQL
 
@@ -212,7 +233,7 @@ skool-pp-cli sql "SELECT community, resource_type, COUNT(*) FROM resources GROUP
 
 # Bash one-liner: daily digest across N communities
 for c in bewarethedefault early-ai-adopters another-community; do
-  skool-pp-cli digest since 24h --community $c --json --select community,new_post_count,new_posts >> ~/skool-daily-digest.jsonl
+  skool-pp-cli digest since 24h --community "$c" --json --select community,new_post_count,new_posts >> ~/skool-daily-digest.jsonl
 done
 ```
 
@@ -229,7 +250,7 @@ The headline daily/weekly command. Walks paginated community feed, dedups, filte
 
 ## Auth Setup
 
-Skool has no public API. Authenticate with the auth_token JWT cookie from your logged-in browser session: `skool-pp-cli auth set-token` (writes ~/.config/skool-pp-cli/config.toml). Same cookie covers reads and writes; CloudFront requires a realistic User-Agent which the CLI sets automatically.
+Skool has no public API. Authenticate with the auth_token JWT cookie from your logged-in browser session: `skool-pp-cli auth login` (writes ~/.config/skool-pp-cli/config.toml). Add `--chrome` to read the cookie straight out of a logged-in Chrome profile. The auth surface is `auth login`, `auth logout`, and `auth status` — there is no `auth set-token`. Same cookie covers reads and writes; CloudFront requires a realistic User-Agent which the CLI sets automatically.
 
 Run `skool-pp-cli doctor` to verify setup.
 

@@ -5,6 +5,10 @@
   "api_name": "harris-teeter",
   "display_name": "Harris Teeter",
   "cli_name": "harris-teeter-pp-cli",
+  "creator": {
+    "handle": "jwmoss",
+    "name": "Jonathan Moss"
+  },
   "owner": "jonathan-moss",
   "printer": "jwmoss",
   "printer_name": "Jonathan Moss",
@@ -13,7 +17,7 @@
   "spec_checksum": "sha256:3b54b787b4433b7a5d5cb5478e7f8e1b4e87d7b79dfc38387c9042d823a933f7",
   "run_id": "20260517-190052",
   "category": "commerce",
-  "description": "Read-only Harris Teeter grocery CLI for products, stores, coupons, cart, lists, account preferences, and recommendations through the logged-in web app session.",
+  "description": "Harris Teeter grocery shopping API discovered from the logged-in web app",
   "mcp_binary": "harris-teeter-pp-mcp",
   "mcp_tool_count": 15,
   "mcp_ready": "partial",
@@ -44,6 +48,12 @@
       "name": "Read-only cart and list inspection",
       "command": "cart",
       "description": "Inspect the authenticated Harris Teeter cart and shopping-list surfaces without exposing mutating checkout or order actions."
+    }
+  ],
+  "contributors": [
+    {
+      "handle": "tmchow",
+      "name": "Trevin Chow"
     }
   ]
 }

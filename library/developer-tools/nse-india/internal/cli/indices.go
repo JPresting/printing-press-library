@@ -15,5 +15,7 @@ func newIndicesCmd(flags *rootFlags) *cobra.Command {
 
 	cmd.AddCommand(newIndicesConstituentsCmd(flags))
 	cmd.AddCommand(newIndicesListCmd(flags))
+	cmd.AddCommand(newIndicesDataCmd(flags))
+	cmd.AddCommand(newIndicesAllCmd(flags))
 	return cmd
 }

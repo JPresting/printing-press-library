@@ -5,38 +5,38 @@ Full transcripts, AI-extracted entities, mentions, brand-safety analysis.
 
 Learn more at [Podscan](https://podscan.fm).
 
-Printed by [@gregvanhorn](https://github.com/gregvanhorn) (Greg Van Horn).
+Created by [@gregvanhorn](https://github.com/gregvanhorn) (Greg Van Horn).
 
 ## Install
 
 The recommended path installs both the `podscan-pp-cli` binary and the `pp-podscan` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install podscan
+npx -y @mvanhorn/printing-press-library install podscan
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install podscan --cli-only
+npx -y @mvanhorn/printing-press-library install podscan --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install podscan --skill-only
+npx -y @mvanhorn/printing-press-library install podscan --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install podscan --agent claude-code
-npx -y @mvanhorn/printing-press install podscan --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install podscan --agent claude-code
+npx -y @mvanhorn/printing-press-library install podscan --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/media-and-entertainment/podscan/cmd/podscan-pp-cli@latest
@@ -51,6 +51,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install podscan --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -63,13 +71,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-podscan --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install podscan --agent openclaw
 ```
-Install the pp-podscan skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-podscan. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 

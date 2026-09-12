@@ -45,36 +45,39 @@ and a React frontend.
 Our AeroAPI push notification [testing interface](/commercial/aeroapi/send.rvt)
 provides a quick and easy way to test the delivery of customized alerts via AeroAPI push.
 
+Created by [@mvanhorn](https://github.com/mvanhorn) (Matt Van Horn).
+Contributors: [@lloydarmbrust](https://github.com/lloydarmbrust) (Lloyd Armbrust), [@tmchow](https://github.com/tmchow) (Trevin Chow), [@omarshahine](https://github.com/omarshahine) (Omar Shahine), [@giuseppebisemi](https://github.com/giuseppebisemi) (Giuseppe Bisemi).
+
 ## Install
 
 The recommended path installs both the `flight-goat-pp-cli` binary and the `pp-flight-goat` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install flight-goat
+npx -y @mvanhorn/printing-press-library install flight-goat
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install flight-goat --cli-only
+npx -y @mvanhorn/printing-press-library install flight-goat --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install flight-goat --skill-only
+npx -y @mvanhorn/printing-press-library install flight-goat --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install flight-goat --agent claude-code
-npx -y @mvanhorn/printing-press install flight-goat --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install flight-goat --agent claude-code
+npx -y @mvanhorn/printing-press-library install flight-goat --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/travel/flight-goat/cmd/flight-goat-pp-cli@latest
@@ -89,6 +92,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install flight-goat --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -101,13 +112,16 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-flight-goat --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
-Tell your OpenClaw agent (copy this):
+```bash
+npx -y @mvanhorn/printing-press-library install flight-goat --agent openclaw
+```
 
-```
-Install the pp-flight-goat skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-flight-goat. The skill defines how its required CLI can be installed.
-```
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -117,7 +131,7 @@ To install:
 
 1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/flight-goat-current).
 2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `FLIGHT_GOAT_API_KEY_AUTH` when Claude Desktop prompts you.
+3. Fill in `FLIGHT_GOAT_API_KEY` when Claude Desktop prompts you.
 
 Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
 
@@ -125,6 +139,7 @@ Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple S
 <summary>Manual JSON config (advanced)</summary>
 
 If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/travel/flight-goat/cmd/flight-goat-pp-mcp@latest
@@ -138,7 +153,8 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
     "flight-goat": {
       "command": "flight-goat-pp-mcp",
       "env": {
-        "FLIGHT_GOAT_API_KEY_AUTH": "<your-key>"
+        "FLIGHT_GOAT_ENV": "<env>",
+        "FLIGHT_GOAT_API_KEY": "<your-key>"
       }
     }
   }
@@ -155,13 +171,27 @@ See [Install](#install) above.
 
 ### 2. Set Up Credentials
 
+Set the endpoint variables for the tenant, workspace, or API version you want this CLI to use:
+
+```bash
+export FLIGHT_GOAT_ENV="<env>"
+```
+
 Get your API key from your API provider's developer portal. The key typically looks like a long alphanumeric string.
 
 ```bash
-export FLIGHT_GOAT_API_KEY_AUTH="<paste-your-key>"
+export FLIGHT_GOAT_API_KEY="<paste-your-key>"
 ```
 
-You can also persist this in your config file at `~/.config/flight-goat-pp-cli/config.toml`.
+The `award` command uses a separate Seats.aero Partner API key, not `FLIGHT_GOAT_API_KEY`:
+
+```bash
+export SEATS_AERO_API_KEY="<your-seats-aero-pro-key>"
+```
+
+Seats.aero Pro users can generate one under their Settings → API tab; cached search (the endpoint `award` uses) is Pro-eligible, while live search requires a commercial agreement and is intentionally not exposed.
+
+To persist credentials, use `flight-goat-pp-cli auth set-token <token>`. Stored secrets live in `credentials.toml` under the data directory, not in `config.toml`.
 
 ### 3. Verify Setup
 
@@ -181,29 +211,100 @@ flight-goat-pp-cli airports get mock-value
 
 Run `flight-goat-pp-cli --help` for the full command reference and flag list.
 
-### Google Flights Currency
+## Paths & environment variables
 
-Google Flights price commands accept `--currency <ISO-4217-code>` for native
-Google Flights prices in that currency. The default is USD when the flag is
-omitted.
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `FLIGHT_GOAT_CONFIG_DIR`, `FLIGHT_GOAT_DATA_DIR`, `FLIGHT_GOAT_STATE_DIR`, or `FLIGHT_GOAT_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `FLIGHT_GOAT_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
 
 ```bash
-flight-goat-pp-cli flights MAN AGP 2026-05-10 --currency GBP --sort cheapest
-flight-goat-pp-cli dates JFK CDG --from 2026-07-01 --to 2026-07-31 --currency EUR --sort
-flight-goat-pp-cli compare SEA LHR 2026-06-15 --currency GBP
+export FLIGHT_GOAT_HOME=/srv/flight-goat
+flight-goat-pp-cli doctor
 ```
 
-`--currency` is intentionally command-scoped. It is available on commands that
-ask Google Flights for prices (`flights`, `dates`, `compare`, `gf-search`, and
-`cheapest-longhaul`), not on AeroAPI or Kayak-only commands.
+Under `FLIGHT_GOAT_HOME=/srv/flight-goat`, the four dirs resolve to `/srv/flight-goat/config`, `/srv/flight-goat/data`, `/srv/flight-goat/state`, and `/srv/flight-goat/cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "flight-goat": {
+      "command": "flight-goat-pp-mcp",
+      "env": {
+        "FLIGHT_GOAT_HOME": "/srv/flight-goat"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `FLIGHT_GOAT_DATA_DIR` overrides an explicit `--home` for that kind. Use `FLIGHT_GOAT_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `FLIGHT_GOAT_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `flight-goat-pp-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
 
 ## Commands
+
+### Fare search (no API key)
+
+The headline commands query consumer fare sources directly — no `FLIGHT_GOAT_API_KEY` needed. FlightAware AeroAPI (the resources below) is secondary and optional.
+
+- **`flight-goat-pp-cli flights <origin> <destination> <date>`** - Google Flights fare search with real prices, durations, airlines, and leg details. Round trip with `--return`, multi-city with repeated `--segment`, batch probes with repeated `--trip`. Departure time window with `--time` (outbound) and `--return-time` (return leg, independent of `--time`; falls back to it when unset). `--select-outbound N` fetches real return-leg options priced against a specific outbound instead of Google's default bundled total — see below.
+- **`flight-goat-pp-cli dates <origin> <destination>`** - Cheapest-date scan for a route across a travel window. One-way by default; `--round --duration N` scans round-trip totals instead — see below.
+- **`flight-goat-pp-cli explore <airport>`** / **`flight-goat-pp-cli longhaul <airport>`** - Kayak nonstop and long-haul route discovery.
+- **`flight-goat-pp-cli soar <origin> <destination> <date>`** - FlySoar (Duffel NDC/GDS) second price opinion with a booking handoff.
+- **`flight-goat-pp-cli award <origin> <destination> [--from YYYY-MM-DD --to YYYY-MM-DD]`** - Seats.aero award (mileage) availability across cabin classes (economy/premium/business/first). Requires `SEATS_AERO_API_KEY` (Seats.aero Partner API key; cached search is Pro-eligible). Read-only — miles + taxes, no booking deeplinks.
+- **`flight-goat-pp-cli wifi flight <flightNumber>`** / **`wifi airline <IATA>`** / **`wifi airlines`** / **`wifi rollouts [IATA]`** / **`wifi speed <flight>`** / **`wifi airline-speed <IATA>`** / **`wifi search <query>`** - SeatWifi in-flight WiFi predictions, Starlink rollout status, and crowdsourced speed reports. No API key. Read-only.
+- **`flight-goat-pp-cli assess`** - Delayed-flight/rebooking decision support.
+
+Booking deeplinks in each result's `booking_urls` quote the same `--currency` the search ran in. `award` is the exception: it quotes mileage/points rather than cash and does not produce booking deeplinks.
+
+#### Round trip: getting real return-leg options with `--select-outbound`
+
+`--return` alone returns **outbound itineraries only**. Each row's price already bundles Google's own auto-picked "cheapest return" total, but no actual return flight (time, airline, duration) is shown. To see and choose real return-leg options — the same two-step flow Google's own site uses — run the search twice: first `flight-goat-pp-cli flights LHR BCN 2027-03-01 --return 2027-03-18` for the outbound list, then `flight-goat-pp-cli flights LHR BCN 2027-03-01 --return 2027-03-18 --select-outbound 1` to fetch return options priced against the 1st outbound in that list.
+
+`--select-outbound N` is a 1-based index into the outbound list step 1 returned. It requires `--return` and cannot combine with `--trip` or `--segment`. JSON output (`--json`/`--agent`) adds `direction` (`outbound`/`return`) on each flight and `selected_outbound` on the envelope, so a script or agent can tell which itinerary a set of return options is paired against.
+
+#### Round trip cheapest dates: `dates --round --duration`
+
+`dates` scans one-way prices by default. `--round --duration N` scans round-trip totals instead: `flight-goat-pp-cli dates SEA HNL --round --duration 7 --sort --agent` returns, for each candidate departure day, the cheapest combined round-trip price for departing that day and returning `N` nights later — not a separate outbound/return price pair. `--duration` is required with `--round` (nights, must be greater than zero). Each result row's `price` is already the round-trip total, and `return_date` (`departure_date` + `--duration`) is included alongside it.
+
+#### Bulk fare probes with built-in pacing
+
+Google rate-limits fare traffic per IP; parallel shell loops over `flights` trigger HTTP 429 blocks that can outlast 15 minutes. Run bulk probes in one paced invocation:
+
+```bash
+flight-goat-pp-cli flights \
+  --trip "SEA>DEN@2026-09-14" \
+  --trip "PDX>DEN@2026-09-15@2026-09-17" \
+  --trip "SFO>DEN@2026-09-15" \
+  --pace 3s --currency EUR --agent
+```
+
+`--trip` takes `ORIG>DEST@DEPART` or `ORIG>DEST@DEPART@RETURN` and replaces the positional args; every filter flag applies to all trips. The single JSON envelope carries per-trip rows (`status` `ok`/`error`/`skipped`). Transient 429s retry automatically (2s/5s/12s backoff); on a persistent 429 the batch stops early, the partial envelope is still emitted, and the exit code is 7 (rate limited). `soar` and `explore` use different backends and keep working while Google is blocked.
 
 ### aircraft
 
 Manage aircraft
 
-- **`flight-goat-pp-cli aircraft get-flight-type`** - Returns information about an aircraft type, given an ICAO aircraft type designator string.
+- **`flight-goat-pp-cli aircraft <type>`** - Returns information about an aircraft type, given an ICAO aircraft type designator string.
 Data returned includes the description, type, manufacturer, engine type, and engine
 count.
 
@@ -516,9 +617,27 @@ more information).
 
 Manage schedules
 
-- **`flight-goat-pp-cli schedules get-by-date`** - Returns scheduled flights that have been published by airlines. These
+- **`flight-goat-pp-cli schedules`** - Returns scheduled flights that have been published by airlines. These
 schedules are available for up to three months in the past as well as
 one year into the future.
+
+
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`flight-goat-pp-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`flight-goat-pp-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`flight-goat-pp-cli learnings list`** - Inspect taught rows
+- **`flight-goat-pp-cli learnings forget <query>`** - Undo a teach
+- **`flight-goat-pp-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`flight-goat-pp-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`flight-goat-pp-cli teach-pattern`** - Install a query/resource template up front
+- **`flight-goat-pp-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `FLIGHT_GOAT_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `flight-goat-pp-cli` opens the database, older binaries refuse it with a version error — upgrade the binary rather than downgrading.
 
 ## Output Formats
 
@@ -547,13 +666,22 @@ This CLI is designed for AI agent consumption:
 - **Pipeable** - `--json` output to stdout, errors to stderr
 - **Filterable** - `--select id,name` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Retryable** - creates return "already exists" on retry, deletes return "already deleted"
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
 - **Confirmable** - `--yes` for explicit confirmation of destructive actions
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
 Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
+
+## Runtime Endpoint
+
+This CLI resolves endpoint placeholders at runtime, so one installed binary can target different tenants or API versions without regeneration.
+
+Endpoint environment variables:
+- `FLIGHT_GOAT_ENV` resolves `{env}`
+
+Base URL: `https://{env}.flightaware.com/aeroapi`
 
 ## Health Check
 
@@ -565,15 +693,25 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/flight-goat-pp-cli/config.toml`
+Run `flight-goat-pp-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/flightgoat-pp-cli/config.toml`; `--home`, `FLIGHT_GOAT_HOME`, and per-kind env vars can relocate it.
+
+Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
 Environment variables:
-- `FLIGHT_GOAT_API_KEY_AUTH`
+
+| Name | Kind | Required | Description |
+| --- | --- | --- | --- |
+| `FLIGHT_GOAT_ENV` | endpoint | Yes |  |
+| `FLIGHT_GOAT_API_KEY` | per_call | Yes | Set to your API credential. |
+
+### agentcookie (optional)
+
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `flight-goat-pp-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**
 - Run `flight-goat-pp-cli doctor` to check credentials
-- Verify the environment variable is set: `echo $FLIGHT_GOAT_API_KEY_AUTH`
+- Verify the environment variable is set: `echo $FLIGHT_GOAT_API_KEY`
 **Not found errors (exit code 3)**
 - Check the resource ID is correct
 - Run the `list` command to see available items

@@ -4,24 +4,44 @@
 
 This CLI (servicetitan-pricebook-pp-cli) mirrors every ServiceTitan Pricebook v2 endpoint (categories, client-specific pricing, discounts & fees, equipment, materials, materials markup, bulk operations, images, services, export feeds) and adds twelve novel commands that join across them in a local SQLite store. It snapshots cost and price history on every sync, so markup-audit, cost-drift, and reprice become one-shot. It is part of a per-module ST CLI family (servicetitan-crm, servicetitan-dispatch, servicetitan-inventory, servicetitan-jpm, servicetitan-pricebook) designed to replace the heavy 600+-tool general ServiceTitan MCP with focused, agent-native binaries.
 
+Created by [@pierc](https://github.com/pierc) (Pierce).
+
 ## Install
 
-The recommended path installs both the `servicetitan-pricebook-pp-cli` binary and the `pp-servicetitan-pricebook` agent skill in one shot:
+The recommended path installs both the `servicetitan-pricebook-pp-cli` binary and the `pp-servicetitan-pricebook` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install servicetitan-pricebook
+npx -y @mvanhorn/printing-press-library install servicetitan-pricebook
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install servicetitan-pricebook --cli-only
+npx -y @mvanhorn/printing-press-library install servicetitan-pricebook --cli-only
 ```
 
+For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
-### Without Node
+```bash
+npx -y @mvanhorn/printing-press-library install servicetitan-pricebook --skill-only
+```
 
-The generated install path is category-agnostic until this CLI is published. If `npx` is not available before publish, install Node or use the category-specific Go fallback from the public-library entry after publish.
+To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install servicetitan-pricebook --agent claude-code
+npx -y @mvanhorn/printing-press-library install servicetitan-pricebook --agent claude-code --agent codex
+```
+
+### Without Node (Go fallback)
+
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/sales-and-crm/servicetitan-pricebook/cmd/servicetitan-pricebook-pp-cli@latest
+```
+
+This installs the CLI only — no skill.
 
 ### Pre-built binary
 
@@ -29,6 +49,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install servicetitan-pricebook --cli-only
+```
+
+Then install the focused Hermes skill.
 
 From the Hermes CLI:
 
@@ -42,13 +70,54 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-servicetitan-pricebook --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install servicetitan-pricebook --agent openclaw
 ```
-Install the pp-servicetitan-pricebook skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-servicetitan-pricebook. The skill defines how its required CLI can be installed.
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle — Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/servicetitan-pricebook-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `ST_CLIENT_ID` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+Install the MCP binary from this CLI's published public-library entry or pre-built release.
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "servicetitan-pricebook": {
+      "command": "servicetitan-pricebook-pp-mcp",
+      "env": {
+        "ST_CLIENT_ID": "<your-key>"
+      }
+    }
+  }
+}
 ```
+
+</details>
 
 ## Authentication
 
@@ -60,18 +129,14 @@ ServiceTitan uses composed auth: a static ST-App-Key header (set ST_APP_KEY) plu
 # Confirm ST_APP_KEY, bearer token, ST_TENANT_ID, and base URL before anything else.
 servicetitan-pricebook-pp-cli doctor
 
-
 # Pull materials, equipment, services, categories, markup tiers, and rate sheets into the local store and snapshot cost/price history.
 servicetitan-pricebook-pp-cli sync
-
 
 # See markup-drift, vendor-part-gap, warranty, cost-drift, and orphan counts in one rollup.
 servicetitan-pricebook-pp-cli health --agent
 
-
 # Drill into the SKUs whose markup has drifted off the tier ladder.
 servicetitan-pricebook-pp-cli markup-audit --tolerance 5
-
 
 # Diff a vendor quote against current pricebook costs before writing anything back.
 servicetitan-pricebook-pp-cli quote-reconcile ./2m-quote.csv
@@ -271,7 +336,6 @@ Manage services
 - **`servicetitan-pricebook-pp-cli services get-list`** - Get data on all of the services in the pricebook. Supports optional search filtering.
 - **`servicetitan-pricebook-pp-cli services update`** - Edit an existing item in your pricebook
 
-
 ## Output Formats
 
 ```bash
@@ -306,69 +370,6 @@ This CLI is designed for AI agent consumption:
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
 Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
-
-## Use with Claude Code
-
-Install the focused skill — it auto-installs the CLI on first invocation:
-
-```bash
-npx skills add mvanhorn/printing-press-library/cli-skills/pp-servicetitan-pricebook -g
-```
-
-Then invoke `/pp-servicetitan-pricebook <query>` in Claude Code. The skill is the most efficient path — Claude Code drives the CLI directly without an MCP server in the middle.
-
-<details>
-<summary>Use as an MCP server in Claude Code (advanced)</summary>
-
-If you'd rather register this CLI as an MCP server in Claude Code, install the MCP binary first:
-
-
-Install the MCP binary from this CLI's published public-library entry or pre-built release.
-
-Then register it:
-
-```bash
-claude mcp add servicetitan-pricebook servicetitan-pricebook-pp-mcp -e ST_CLIENT_ID=<your-token>
-```
-
-</details>
-
-## Use with Claude Desktop
-
-This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle — Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
-
-To install:
-
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/servicetitan-pricebook-current).
-2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `ST_CLIENT_ID` when Claude Desktop prompts you.
-
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
-
-<details>
-<summary>Manual JSON config (advanced)</summary>
-
-If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
-
-
-Install the MCP binary from this CLI's published public-library entry or pre-built release.
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "servicetitan-pricebook": {
-      "command": "servicetitan-pricebook-pp-mcp",
-      "env": {
-        "ST_CLIENT_ID": "<your-key>"
-      }
-    }
-  }
-}
-```
-
-</details>
 
 ## Health Check
 

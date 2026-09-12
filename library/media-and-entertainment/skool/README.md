@@ -4,36 +4,39 @@
 
 Pulls every post, comment, member, course, lesson, and calendar event into a local SQLite store with FTS5 so you can query historical state, compute leaderboard deltas, and surface at-risk members the native UI cannot show. One auth_token cookie, two hosts (www.skool.com reads, api2.skool.com writes), zero CloudFront friction.
 
+Created by [@quoxientzero](https://github.com/quoxientzero) (Zain Haseeb).
+Contributors: [@tmchow](https://github.com/tmchow) (Trevin Chow).
+
 ## Install
 
 The recommended path installs both the `skool-pp-cli` binary and the `pp-skool` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install skool
+npx -y @mvanhorn/printing-press-library install skool
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install skool --cli-only
+npx -y @mvanhorn/printing-press-library install skool --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install skool --skill-only
+npx -y @mvanhorn/printing-press-library install skool --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install skool --agent claude-code
-npx -y @mvanhorn/printing-press install skool --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install skool --agent claude-code
+npx -y @mvanhorn/printing-press-library install skool --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/media-and-entertainment/skool/cmd/skool-pp-cli@latest
@@ -48,6 +51,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install skool --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -60,13 +71,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-skool --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install skool --agent openclaw
 ```
-Install the pp-skool skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-skool. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -110,28 +125,28 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## Authentication
 
-Skool has no public API. Authenticate with the auth_token JWT cookie from your logged-in browser session: `skool-pp-cli auth set-token` (writes ~/.config/skool-pp-cli/config.toml). Same cookie covers reads and writes; CloudFront requires a realistic User-Agent which the CLI sets automatically.
+Skool has no public API. Authenticate with the auth_token JWT cookie from your logged-in browser session: `skool-pp-cli auth login` (writes ~/.config/skool-pp-cli/config.toml). Add `--chrome` to read the cookie straight out of a logged-in Chrome profile. `skool-pp-cli auth status` shows the current state and `skool-pp-cli auth logout` clears it. Same cookie covers reads and writes; CloudFront requires a realistic User-Agent which the CLI sets automatically.
 
 ## Quick Start
 
 ```bash
-# Paste your auth_token cookie value once; lives in TOML config
-skool-pp-cli auth set-token
+# Store your auth_token cookie once; lives in TOML config
+skool-pp-cli auth login --chrome
 
-# First-time sync of the community into the local store
-skool-pp-cli sync bewarethedefault
+# First-time sync of a community into the local store
+skool-pp-cli sync --community <community-slug>
 
 # List recent posts with field selection
-skool-pp-cli posts list --limit 10 --json --select id,name,user.name
+skool-pp-cli posts list --community <community-slug> --limit 10 --json --select id,name,user.name
 
-# Current 30-day leaderboard
-skool-pp-cli leaderboard --type 30d --top 25
+# List community members
+skool-pp-cli members list --community <community-slug> --json
 
-# Transcendence: members whose engagement velocity is dropping
-skool-pp-cli members at-risk --weeks 4 --json
+# Current leaderboard
+skool-pp-cli leaderboard --community <community-slug> --top 25
 
 # What's new in the last day across the community
-skool-pp-cli digest since 24h
+skool-pp-cli digest since 24h --community <community-slug>
 
 ```
 
@@ -167,6 +182,15 @@ These capabilities aren't available in any other tool for this API.
 
   ```bash
   skool-pp-cli sql 'SELECT community, COUNT(*) FROM posts GROUP BY community'
+  ```
+
+- **`sync --resources posts,members`** — Hydrate the local SQLite mirror with a community's posts and members, unwrapped out of the Next.js page envelope.
+
+  _Pick this before using `search` or `sql` — until the mirror holds posts and members, both have nothing to read._
+
+  ```bash
+  skool-pp-cli sync --community <community-slug> --resources posts,members
+  skool-pp-cli search "onboarding" --limit 10
   ```
 
 ### Agent-native plumbing
@@ -223,6 +247,7 @@ Current authenticated user dashboard
 
 Community members and moderation
 
+- **`skool-pp-cli members list`** - List members of a community
 - **`skool-pp-cli members approve`** - Approve a pending member request
 - **`skool-pp-cli members ban`** - Ban a member from the community
 - **`skool-pp-cli members pending`** - List pending member join requests
@@ -239,6 +264,7 @@ User notifications
 
 Posts (forum threads) inside a community
 
+- **`skool-pp-cli posts list`** - List posts in a community (newest first)
 - **`skool-pp-cli posts comment`** - Add a comment to a post
 - **`skool-pp-cli posts create`** - Create a new post (body = TipTap JSON; use --md to convert markdown)
 - **`skool-pp-cli posts delete`** - Delete a post
@@ -327,8 +353,10 @@ Config file: `~/.config/skool-pp-cli/config.toml`
 ### API-specific
 
 - **404 on read endpoints** — Run `skool-pp-cli doctor`; the buildId likely rotated. The CLI auto-refetches but you can force `skool-pp-cli buildid refresh`.
-- **403 from CloudFront** — Your auth_token expired or User-Agent is missing. Run `skool-pp-cli auth status` then `auth set-token` with a fresh cookie.
-- **Empty leaderboard delta** — Need at least two snapshots. Run `skool-pp-cli sync` over multiple days, or `sync --snapshot-now` to seed two points.
+- **403 from CloudFront** — Your auth_token expired or User-Agent is missing. Run `skool-pp-cli auth status`, then `skool-pp-cli auth login --chrome` for a fresh cookie.
+- **Empty leaderboard delta** — Need at least two snapshots. Run `skool-pp-cli sync --community <community-slug>` over multiple days to accumulate them.
+- **`404 {"notFound":true}` on a read** — Skool rotates its Next.js buildId on every deploy. The CLI now drops the cached buildId and retries once automatically; if it persists, the community slug or course slug is wrong.
+- **`sync` reports a failed resource with no reason** — Re-run with `--agent`; each failure now emits its own `{"event":"sync_error","resource":...,"error":...}` line before the summary.
 
 ## HTTP Transport
 

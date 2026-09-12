@@ -1,6 +1,6 @@
 module github.com/mvanhorn/printing-press-library/library/food-and-dining/dominos
 
-go 1.26.3
+go 1.26.6
 
 require (
 	github.com/enetx/surf v1.0.199
@@ -19,7 +19,7 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20260321001828-e3e3800016bc // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/enetx/g v1.0.224 // indirect
-	github.com/enetx/http v1.0.28 // indirect
+	github.com/enetx/http v1.0.29 // indirect
 	github.com/enetx/http2 v1.0.26 // indirect
 	github.com/enetx/http3 v1.0.7 // indirect
 	github.com/enetx/iter v0.0.0-20250912135656-f1583323588f // indirect
@@ -37,8 +37,8 @@ require (
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/wzshiming/socks5 v0.7.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	golang.org/x/crypto v0.41.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 )

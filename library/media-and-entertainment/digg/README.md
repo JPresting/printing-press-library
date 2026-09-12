@@ -4,36 +4,38 @@
 
 Digg is a curated AI-news leaderboard powered by tracked accounts on X and a parallel GitHub feed (stars / new / activity / recent). The web UI shows you today's snapshot. This CLI tails the pipeline events, keeps a local rank-history that survives daily overwrites, exposes Digg's own replacement rationale and gravity components, and surfaces the four GitHub feeds as structured data.
 
+Created by [@mvanhorn](https://github.com/mvanhorn) (Matt Van Horn).
+
 ## Install
 
 The recommended path installs both the `digg-pp-cli` binary and the `pp-digg` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install digg
+npx -y @mvanhorn/printing-press-library install digg
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install digg --cli-only
+npx -y @mvanhorn/printing-press-library install digg --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install digg --skill-only
+npx -y @mvanhorn/printing-press-library install digg --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install digg --agent claude-code
-npx -y @mvanhorn/printing-press install digg --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install digg --agent claude-code
+npx -y @mvanhorn/printing-press-library install digg --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/media-and-entertainment/digg/cmd/digg-pp-cli@latest
@@ -48,6 +50,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install digg --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -60,13 +70,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-digg --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install digg --agent openclaw
 ```
-Install the pp-digg skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-digg. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -120,17 +134,26 @@ digg-pp-cli events --since 1h --type fast_climb
 # What got knocked out of the rankings overnight and Digg's own rationale for each
 digg-pp-cli replaced --since 24h
 
-
 # Top influencers tracked by Digg, ranked by Digg's score
 digg-pp-cli authors top --by influence --limit 25
-
 
 # Top AI repos by starring activity from Digg-tracked accounts
 digg-pp-cli github stars --limit 10 --json
 
+# Smart-money convergence — repos starred by >= 2 distinct AI-builder accounts
+digg-pp-cli github stars --min-starrers 2 --json
 
 # Live GitHub activity feed: who starred / committed / opened issues, in real time
 digg-pp-cli github recent --limit 20 --json
+
+# Curated emerging AI companies from the /ai/x/rankings/companies snapshot
+digg-pp-cli rankings emerging --json
+
+# Companies climbing fastest in follower count since the last snapshot
+digg-pp-cli rankings movers --direction up --json
+
+# Full company ranking (initial-HTML slice)
+digg-pp-cli rankings list --limit 20 --json
 
 ```
 
@@ -281,10 +304,18 @@ Top-level story feed (HTML page; CLI parses the embedded RSC stream)
 
 GitHub feeds Digg surfaces alongside the X-account leaderboard. Four flavors, each parsed from the embedded RSC stream.
 
-- **`digg-pp-cli github stars`** - Top AI repos ranked by starring activity from Digg-tracked accounts. Returns repo name, language, stargazers_count, recent starrer list, breakout_score, novel_score, ai_related_score, and the model's one-sentence classification.
+- **`digg-pp-cli github stars`** - Top AI repos ranked by starring activity from Digg-tracked accounts. Returns repo name, language, stargazers_count, recent starrer list, breakout_score, novel_score, ai_related_score, and the model's one-sentence classification. Flag: `--min-starrers N` filters to repos starred by >= N distinct accounts (smart-money convergence).
 - **`digg-pp-cli github new`** - Recently first-seen repos with the Digg-tracked creator/starrer who first put them on Digg's radar (event_id, event_created_at, repo_full_name, creator).
 - **`digg-pp-cli github activity`** - Top GitHub contributor leaderboard: per-author rank, contribution count, and distinct repos.
 - **`digg-pp-cli github recent`** - Live activity feed: per-event entries with the GitHub URL and the user who acted.
+
+### Rankings views
+
+Sub-views of the `/ai/x/rankings/companies` page, each parsed from a distinct section of the same RSC stream. Every command shares a schema-drift gate via `--max-skip-ratio` (default 0.10).
+
+- **`digg-pp-cli rankings emerging`** - Curated list of small AI companies (the "EMERGING STARTUPS — CURATED THIS SNAPSHOT" section). ~10 rows per snapshot. Each row carries `isEmergingStartup` (the AI judge's verdict) plus the curator's `emergingReasoning` text.
+- **`digg-pp-cli rankings movers`** - Companies whose follower count shifted most since the last snapshot. `--direction up|down|both` (default both, with direction tagged per row). ~10 rows per side.
+- **`digg-pp-cli rankings list`** - Full company ranking (the "Companies followed by the AI 2K" section). Server-paginated; returns the initial-HTML slice. `--limit` caps.
 
 ### search
 

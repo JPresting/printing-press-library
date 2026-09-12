@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "id": "spec-example-tokens-sanitized",
+  "applied_at": "2026-09-01",
+  "base_run_id": "20260901-171359-a49ee862",
+  "base_printing_press_version": "4.31.4",
+  "summary": "Example API keys in the OpenRouter OpenAPI spec replaced with sk-or-v1-REDACTED-EXAMPLE placeholders before generation.",
+  "reason": "OpenRouter's published OpenAPI spec embeds illustrative bearer tokens in its `examples:` blocks. Whether they're revoked or live, they match the OpenRouter vendor-prefix shape and triggered GitHub Push Protection. The spec field semantics (request shape, schema) are unchanged; only docs strings were redacted. Tracked upstream as cli-printing-press#829 (publish secret-scan should be pattern-based, not exact-value-only).",
+  "files": [
+    "spec.json",
+    ".manuscripts/20260901-171359-a49ee862/research/openrouter-openapi.json"
+  ],
+  "validated_outcome": "grep for live-looking sk-or-v1-<hex40+> over library + manuscripts returns only REDACTED placeholders; GitHub Push Protection not triggered."
+}

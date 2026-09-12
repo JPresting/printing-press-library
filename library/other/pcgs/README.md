@@ -4,38 +4,44 @@
 
 PCGS gives you 1,000 API calls per day per token. This CLI tracks every call locally, forecasts batch cost before you spend a single one, syncs only mutable market fields on refresh, and ingests CSV / JSON / JSONL / plain-text cert lists straight into a local SQLite cache. No community wrapper exists. This is the only PCGS CLI.
 
-Printed by [@vinnyp](https://github.com/vinnyp) (Vinny Pasceri).
+Created by [@vinnyp](https://github.com/vinnyp) (Vinny Pasceri).
 
 ## Install
 
 The recommended path installs both the `pcgs-pp-cli` binary and the `pp-pcgs` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install pcgs
+npx -y @mvanhorn/printing-press-library install pcgs
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install pcgs --cli-only
+npx -y @mvanhorn/printing-press-library install pcgs --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install pcgs --skill-only
+npx -y @mvanhorn/printing-press-library install pcgs --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install pcgs --agent claude-code
-npx -y @mvanhorn/printing-press install pcgs --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install pcgs --agent claude-code
+npx -y @mvanhorn/printing-press-library install pcgs --agent claude-code --agent codex
 ```
 
-### Without Node
+### Without Node (Go fallback)
 
-The generated install path is category-agnostic until this CLI is published. If `npx` is not available before publish, install Node or use the category-specific Go fallback from the public-library entry after publish.
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/other/pcgs/cmd/pcgs-pp-cli@latest
+```
+
+This installs the CLI only — no skill.
 
 ### Pre-built binary
 
@@ -43,6 +49,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install pcgs --cli-only
+```
+
+Then install the focused Hermes skill.
 
 From the Hermes CLI:
 
@@ -56,13 +70,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-pcgs --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install pcgs --agent openclaw
 ```
-Install the pp-pcgs skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-pcgs. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -111,22 +129,17 @@ Set `PCGS_AUTH_TOKEN` to the bearer token generated at https://www.pcgs.com/publ
 # Confirm the token is set and the API is reachable before spending quota.
 pcgs-pp-cli doctor --json
 
-
 # See today's used / remaining / reset before any batch.
 pcgs-pp-cli --quota --json
-
 
 # Single-cert verification + full CoinFacts extraction (IsValidRequest = true iff the cert is legit).
 pcgs-pp-cli coin facts-cert 53972744 --json
 
-
 # Forecast batch cost against remaining quota with zero live calls.
 pcgs-pp-cli coin batch --file examples-pcgs-coin-list.csv --dry-run --json
 
-
 # Real batch ingest, resumable across UTC days if the file is larger than the daily budget.
 pcgs-pp-cli coin batch --file examples-pcgs-coin-list.csv --resumable --checkpoint pcgs.ckpt --json
-
 
 # Refresh only Population / PriceGuide / Auction / Images / CoinFactsNotes — never overwrite cert identity.
 pcgs-pp-cli refresh --all --older 7d --json
@@ -217,7 +230,6 @@ PCGS submission and order lookups for submitters.
 
 - **`pcgs-pp-cli order range`** - Orders within a date window (paginated).
 - **`pcgs-pp-cli order submission`** - Orders associated with one PCGS submission number.
-
 
 ## Output Formats
 

@@ -4,36 +4,38 @@
 
 The OpenSnow CLI puts the same hyper-local mountain forecasts trusted by millions of skiers directly into your terminal. Sync resort data to a local SQLite store, then score powder days, rank resorts, and track storms offline. The Daily Snow digest brings expert meteorologist forecasts to your terminal without opening a browser.
 
+Created by [@davemorin](https://github.com/davemorin) (Dave Morin).
+
 ## Install
 
 The recommended path installs both the `opensnow-pp-cli` binary and the `pp-opensnow` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install opensnow
+npx -y @mvanhorn/printing-press-library install opensnow
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install opensnow --cli-only
+npx -y @mvanhorn/printing-press-library install opensnow --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install opensnow --skill-only
+npx -y @mvanhorn/printing-press-library install opensnow --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install opensnow --agent claude-code
-npx -y @mvanhorn/printing-press install opensnow --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install opensnow --agent claude-code
+npx -y @mvanhorn/printing-press-library install opensnow --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/productivity/opensnow/cmd/opensnow-pp-cli@latest
@@ -48,6 +50,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install opensnow --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -60,13 +70,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-opensnow --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install opensnow --agent openclaw
 ```
-Install the pp-opensnow skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-opensnow. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -323,7 +337,7 @@ opensnow-pp-cli diff alta
 opensnow-pp-cli daily-reads content get-daily-snow colorado
 
 # Get a forecast for an exact GPS coordinate
-opensnow-pp-cli forecast get-by-point -111.5838,40.5884 --elev 8530
+opensnow-pp-cli forecast get-by-point --elev 8530 -- -111.5838,40.5884
 
 # Show day + night snowfall detail for Steamboat
 opensnow-pp-cli forecast get-snow-detail steamboat

@@ -19,7 +19,7 @@ metadata:
      This file is a verbatim mirror of library/payments/stripe/SKILL.md,
      regenerated post-merge by tools/generate-skills/. Hand-edits here are
      silently overwritten on the next regen. Edit the library/ source instead.
-     See AGENTS.md "Generated artifacts: registry.json, cli-skills/". -->
+     See the repository agent guide, section "Generated artifacts: registry.json, cli-skills/". -->
 
 # Stripe — Printing Press CLI
 
@@ -27,22 +27,20 @@ metadata:
 
 This skill drives the `stripe-pp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   npx -y @mvanhorn/printing-press install stripe --cli-only
+   npx -y @mvanhorn/printing-press-library install stripe --cli-only
    ```
 2. Verify: `stripe-pp-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.3 or newer):
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/payments/stripe/cmd/stripe-pp-cli@latest
 ```
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
-
-stripe-pp-cli matches the official stripe-cli verb-for-verb and adds what it deliberately omits: a local mirror of customers, subscriptions, invoices, charges, payouts, and events with FTS5 search; cross-entity SQL queries (`sql`); and dossier commands (`health`, `dunning-queue`, `customer-360`, `subs-at-risk`, `payout-reconcile`). Built for agents — every command is one-shot, one-shot, and emits structured output.
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 ## When to Use This CLI
 

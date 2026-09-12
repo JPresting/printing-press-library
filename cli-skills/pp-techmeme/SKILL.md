@@ -19,7 +19,7 @@ metadata:
      This file is a verbatim mirror of library/productivity/techmeme/SKILL.md,
      regenerated post-merge by tools/generate-skills/. Hand-edits here are
      silently overwritten on the next regen. Edit the library/ source instead.
-     See AGENTS.md "Generated artifacts: registry.json, cli-skills/". -->
+     See the repository agent guide, section "Generated artifacts: registry.json, cli-skills/". -->
 
 # Techmeme — Printing Press CLI
 
@@ -27,22 +27,20 @@ metadata:
 
 This skill drives the `techmeme-pp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   npx -y @mvanhorn/printing-press install techmeme --cli-only
+   npx -y @mvanhorn/printing-press-library install techmeme --cli-only
    ```
 2. Verify: `techmeme-pp-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.25+):
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/productivity/techmeme/cmd/techmeme-pp-cli@latest
 ```
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
-
-The Techmeme CLI puts the tech industry's most trusted news curation into your terminal. Sync headlines to a local SQLite store, then search, filter by time, track topics, and analyze which stories and sources are dominating. The 'since' command answers the question every tech professional asks: 'what did I miss?'
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 ## When to Use This CLI
 
@@ -159,6 +157,14 @@ techmeme-pp-cli search 'Apple' --agent --select title,source,link
 ```
 
 Find all recent Techmeme headlines about Apple
+
+### Windowed archive search
+
+```bash
+techmeme-pp-cli search 'Apple' --days 30 --json
+```
+
+`search` queries Techmeme's live archive (back to ~2005). Each JSON record carries a `date` field (ISO `YYYY-MM-DD`, empty string when the results page shows no parseable date). `--days N` keeps only results dated within the last N days (undated records are dropped when the filter is active). Zero hits in JSON mode emit an empty JSON array `[]` on stdout, so piped consumers always get valid JSON.
 
 ### Media landscape
 

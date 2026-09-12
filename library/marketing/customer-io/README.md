@@ -4,36 +4,38 @@
 
 The official customerio/cli exposes the API as raw passthrough. This CLI gives you typed commands for every meaningful workflow, plus eight commands no other tool has — journey funnels cross-cut by segment, multi-segment overlap, customer 360 timelines, broadcast pre-flight, suppression audit trails, Reverse-ETL health, bulk suppress with provenance, and incident-ready delivery triage bundles. It is also the only Customer.io tool that ships an MCP server.
 
+Created by [@tmchow](https://github.com/tmchow) (Trevin Chow).
+
 ## Install
 
 The recommended path installs both the `customer-io-pp-cli` binary and the `pp-customer-io` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install customer-io
+npx -y @mvanhorn/printing-press-library install customer-io
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install customer-io --cli-only
+npx -y @mvanhorn/printing-press-library install customer-io --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install customer-io --skill-only
+npx -y @mvanhorn/printing-press-library install customer-io --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install customer-io --agent claude-code
-npx -y @mvanhorn/printing-press install customer-io --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install customer-io --agent claude-code
+npx -y @mvanhorn/printing-press-library install customer-io --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/marketing/customer-io/cmd/customer-io-pp-cli@latest
@@ -48,6 +50,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install customer-io --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -60,13 +70,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-customer-io --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install customer-io --agent openclaw
 ```
-Install the pp-customer-io skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-customer-io. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -114,7 +128,7 @@ Customer.io uses Service Account tokens (`sa_live_*` prefix). The CLI exchanges 
 
 ```bash
 # One-time SA token exchange; the JWT is cached and refreshed automatically.
-customer-io auth login --sa-token $CIO_TOKEN --region us
+customer-io auth login --sa-token "$CIO_TOKEN" --region us
 
 # Confirms token, region, account_id, and which workspaces are reachable.
 customer-io doctor

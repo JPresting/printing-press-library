@@ -1,4 +1,4 @@
-// Copyright 2026 Granola Printing Press contributors. Licensed under Apache-2.0.
+// Copyright 2026 Damien Stevens and contributors. Licensed under Apache-2.0.
 
 //go:build !darwin
 
@@ -15,6 +15,15 @@ import (
 // "Out of scope (Deferred to Follow-Up Work)".
 func loadDEK() ([]byte, error) {
 	return nil, ErrUnsupportedPlatform
+}
+
+// PATCH(dek-migration): classifyStaleDEKFile is the non-darwin stub for
+// the shared Decrypt path. There is no local key file to go stale on a
+// platform where loadDEK never produces one, so nothing is reclassified
+// and Decrypt keeps returning ErrDecryptFailed. Present so the shared
+// code referencing ErrSchemeMigrated still compiles off darwin.
+func classifyStaleDEKFile() error {
+	return nil
 }
 
 // parseKeyOverride parses GRANOLA_SAFESTORAGE_KEY_OVERRIDE. The env

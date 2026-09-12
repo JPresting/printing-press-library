@@ -1,4 +1,4 @@
-// Copyright 2026 justinwfu. Licensed under Apache-2.0. See LICENSE.
+// Copyright 2026 Justin and contributors. Licensed under Apache-2.0. See LICENSE.
 
 package cli
 
@@ -34,15 +34,18 @@ func newYoutubeVideosEmbedCmd(flags *rootFlags) *cobra.Command {
 	var withTitle bool
 
 	cmd := &cobra.Command{
-		Use:         "videos-embed <videoId>",
+		Use:         "videos-embed <videoId|url>",
 		Short:       "Print embed HTML, iframe, or markdown snippet for a video",
-		Example:     "  youtube-pp-cli youtube videos-embed dQw4w9WgXcQ --format markdown",
-		Annotations: map[string]string{"mcp:read-only": "true"},
+		Example:     "  youtube-pp-cli youtube videos-embed dQw4w9WgXcQ --format markdown\n  youtube-pp-cli youtube videos-embed 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' --format markdown",
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:happy-args": "videoId=dQw4w9WgXcQ", "pp:typed-exit-codes": "0,2,3,5"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
-			videoID := args[0]
+			videoID := parseVideoID(strings.TrimSpace(args[0]))
+			if videoID == "" {
+				return usageErr(fmt.Errorf("could not extract a video ID from %q", args[0]))
+			}
 
 			validFormats := map[string]bool{"url": true, "iframe": true, "markdown": true, "html": true}
 			if !validFormats[format] {
@@ -135,8 +138,7 @@ func fetchVideoTitle(ctx context.Context, flags *rootFlags, videoID string) (str
 	if err != nil {
 		return "", err
 	}
-	c = c.WithContext(ctx)
-	data, err := c.GetWithHeaders("/youtube/v3/videos", map[string]string{
+	data, err := c.GetWithHeaders(ctx, "/youtube/v3/videos", map[string]string{
 		"id":   videoID,
 		"part": "snippet",
 	}, nil)

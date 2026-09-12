@@ -83,8 +83,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("equity_derivatives",
-			mcplib.WithDescription("F&O data — futures (3 expiries with OI, volume, turnover) and options contracts (CE/PE by strike and expiry). Required: functionName (default: getSymbolDerivativesData), symbol. Optional: marketType (default: N), series (default: EQ)."),
-			mcplib.WithString("functionName", mcplib.Required(), mcplib.Description("")),
+			mcplib.WithDescription("F&O data — futures (3 expiries with OI, volume, turnover) and options contracts (CE/PE by strike and expiry). Required: symbol. Optional: marketType (default: N), series (default: EQ)."),
 			mcplib.WithString("marketType", mcplib.Description("")),
 			mcplib.WithString("series", mcplib.Description("")),
 			mcplib.WithString("symbol", mcplib.Required(), mcplib.Description("NSE stock symbol eligible for F&O (e.g. ADANIPORTS, RELIANCE, NIFTY)")),
@@ -92,12 +91,11 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/api/NextApi/apiClient/GetQuoteApi", []mcpParamBinding{{PublicName: "functionName", WireName: "functionName", Location: "query"},{PublicName: "marketType", WireName: "marketType", Location: "query"},{PublicName: "series", WireName: "series", Location: "query"},{PublicName: "symbol", WireName: "symbol", Location: "query"}, }, []string{ }),
+		makeAPIHandler("GET", "/api/NextApi/apiClient/GetQuoteApi?functionName=getSymbolDerivativesData", []mcpParamBinding{{PublicName: "marketType", WireName: "marketType", Location: "query"},{PublicName: "series", WireName: "series", Location: "query"},{PublicName: "symbol", WireName: "symbol", Location: "query"}, }, []string{ }),
 	)
 	s.AddTool(
 		mcplib.NewTool("equity_quote",
-			mcplib.WithDescription("Full equity quote — last price, 52w H/L, sector PE, order book (5 bid/ask levels), delivery%, VaR margin, index memberships, pre-open IEP. Required: functionName (default: getSymbolData), symbol. Optional: marketType (default: N), series (default: EQ)."),
-			mcplib.WithString("functionName", mcplib.Required(), mcplib.Description("")),
+			mcplib.WithDescription("Full equity quote — last price, 52w H/L, sector PE, order book (5 bid/ask levels), delivery%, VaR margin, index memberships, pre-open IEP. Required: symbol. Optional: marketType (default: N), series (default: EQ)."),
 			mcplib.WithString("marketType", mcplib.Description("")),
 			mcplib.WithString("series", mcplib.Description("")),
 			mcplib.WithString("symbol", mcplib.Required(), mcplib.Description("NSE stock symbol (e.g. INFY, ADANIPORTS, RELIANCE)")),
@@ -105,7 +103,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/api/NextApi/apiClient/GetQuoteApi", []mcpParamBinding{{PublicName: "functionName", WireName: "functionName", Location: "query"},{PublicName: "marketType", WireName: "marketType", Location: "query"},{PublicName: "series", WireName: "series", Location: "query"},{PublicName: "symbol", WireName: "symbol", Location: "query"}, }, []string{ }),
+		makeAPIHandler("GET", "/api/NextApi/apiClient/GetQuoteApi?functionName=getSymbolData", []mcpParamBinding{{PublicName: "marketType", WireName: "marketType", Location: "query"},{PublicName: "series", WireName: "series", Location: "query"},{PublicName: "symbol", WireName: "symbol", Location: "query"}, }, []string{ }),
 	)
 	s.AddTool(
 		mcplib.NewTool("indices_constituents",
@@ -115,7 +113,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/api/equity-stockIndices", []mcpParamBinding{{PublicName: "index", WireName: "index", Location: "query"}, }, []string{ }),
+		makeAPIHandler("GET", "/api/NextApi/apiClient/indexTrackerApi?functionName=getConstituents", []mcpParamBinding{{PublicName: "index", WireName: "index", Location: "query"}, }, []string{ }),
 	)
 	s.AddTool(
 		mcplib.NewTool("indices_list",
@@ -137,24 +135,13 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("movers_active",
-			mcplib.WithDescription("Most active intraday securities ranked by volume or traded value. Optional: index (default: INTRADAY), by (default: volume)."),
-			mcplib.WithString("index", mcplib.Description("")),
-			mcplib.WithString("by", mcplib.Description("Sort by 'volume' or 'value'")),
+			mcplib.WithDescription("Most active intraday securities ranked by volume or traded value. Optional: by ('volume' or 'value', default: volume)."),
+			mcplib.WithString("by", mcplib.Description("Rank by 'volume' (quantity traded) or 'value' (total traded value)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/api/live-analysis-most-active-securities", []mcpParamBinding{{PublicName: "index", WireName: "index", Location: "query"},{PublicName: "by", WireName: "key", Location: "query"}, }, []string{ }),
-	)
-	s.AddTool(
-		mcplib.NewTool("symbol_lookup_autocomplete",
-			mcplib.WithDescription("Search symbols by company name or ticker — returns equity, MF, index matches. Required: query."),
-			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Stock name or partial symbol to search (e.g. 'ADANI', 'Infosys')")),
-			mcplib.WithReadOnlyHintAnnotation(true),
-			mcplib.WithDestructiveHintAnnotation(false),
-			mcplib.WithOpenWorldHintAnnotation(true),
-		),
-		makeAPIHandler("GET", "/api/search/autocomplete", []mcpParamBinding{{PublicName: "query", WireName: "q", Location: "query"}, }, []string{ }),
+		makeMoversHandler(),
 	)
 	// SQL tool — ad-hoc analysis on synced data without API calls
 	s.AddTool(
@@ -187,6 +174,41 @@ type mcpParamBinding struct {
 	PublicName string
 	WireName   string
 	Location   string
+}
+
+// makeMoversHandler calls /api/live-analysis-most-active-securities and unwraps
+// the {data:[...],timestamp:...} envelope before returning, so MCP callers
+// receive an iterable array rather than the raw envelope object.
+func makeMoversHandler() server.ToolHandlerFunc {
+	return func(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+		c, err := newMCPClient()
+		if err != nil {
+			return mcplib.NewToolResultError(err.Error()), nil
+		}
+		args := req.GetArguments()
+		by := "volume" // NSE API requires index=volume or index=value; default to volume
+		if v, ok := args["by"].(string); ok && v == "value" {
+			by = "value"
+		}
+		params := map[string]string{"index": by}
+		data, err := c.Get("/api/live-analysis-most-active-securities", params)
+		if err != nil {
+			return mcplib.NewToolResultError(err.Error()), nil
+		}
+		// Unwrap {data:[...], timestamp:...} envelope
+		var envelope struct {
+			Data json.RawMessage `json:"data"`
+		}
+		if json.Unmarshal(data, &envelope) == nil && len(envelope.Data) > 0 {
+			data = envelope.Data
+		}
+		var items []json.RawMessage
+		if json.Unmarshal(data, &items) == nil {
+			out, _ := json.Marshal(map[string]any{"count": len(items), "items": items})
+			return mcplib.NewToolResultText(string(out)), nil
+		}
+		return mcplib.NewToolResultText(string(data)), nil
+	}
 }
 
 // makeAPIHandler creates a generic MCP tool handler for an API endpoint.
@@ -435,14 +457,14 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		// Command-mirror capabilities are exposed through MCP by shelling out
 		// to the companion CLI binary.
 		"command_mirror_capabilities": []map[string]string{
-			{"name": "Delivery Spike Detector", "command": "delivery-spike", "description": "Flags stocks where today's delivery-to-traded ratio is significantly above their 20-session rolling average —...", "rationale": "Requires a rolling time series of delivery% in SQLite; a single API call gives one day with no baseline.", "via": "mcp-command-mirror"},
-			{"name": "Pre-Market IEP Drift Analyzer", "command": "iep-drift", "description": "Tracks how accurately each stock's pre-market IEP (Indicative Equilibrium Price) predicts the actual opening price...", "rationale": "Requires pre-market IEP and actual open price stored in the same SQLite table across sessions — no single API call...", "via": "mcp-command-mirror"},
-			{"name": "Announcement Flood Detector", "command": "announcement-flood", "description": "Surfaces companies whose filing cadence has spiked above their own historical baseline — a leading indicator of...", "rationale": "Compares current filing count against each company's rolling weekly baseline; requires announcement history across...", "via": "mcp-command-mirror"},
-			{"name": "Sector Breadth Analyzer", "command": "sector-breadth", "description": "Computes advance/decline ratio, median pChange, and delivery breadth for every constituent of a named index — far...", "rationale": "Two-table join: index_constituents × daily_quotes; impossible from any single NSE API call.", "via": "mcp-command-mirror"},
-			{"name": "Index Basket Contributor", "command": "index-driver", "description": "Decomposes any day's index move into per-stock point contributions — identifies the 3-5 stocks driving 80%+ of the...", "rationale": "Attribution joins index constituent weights with daily pChange; the weighted sum decomposition requires data only...", "via": "mcp-command-mirror"},
-			{"name": "Portfolio P&L Tracker", "command": "portfolio pnl", "description": "Tracks unrealized P&L, daily delta, and drawdown for a personal holdings file against the synced quote history.", "rationale": "Holdings file × quote history join across dates; reconstructs portfolio value curve from SQLite — no brokerage...", "via": "mcp-command-mirror"},
-			{"name": "Portfolio Margin Health Dashboard", "command": "portfolio margin-health", "description": "Aggregates VaR margin, extreme loss margin, and adhoc margin across a full portfolio — shows total margin-at-risk...", "rationale": "SUM(var_margin × qty × price) across all holdings in a single query; requires multi-symbol join impossible from...", "via": "mcp-command-mirror"},
-			{"name": "Delivery-Price Divergence Scanner", "command": "delivery-divergence", "description": "Detects when price is rising but delivery % is falling (distribution signal) or price falling while delivery is...", "rationale": "CORR(pChange, delivery_pct) over 10 sessions per symbol; correlation pattern is only visible with a joint time...", "via": "mcp-command-mirror"},
+			{"name": "Delivery Spike Detector", "command": "delivery-spike", "description": "Flags stocks where today's delivery-to-traded ratio is significantly above their 20-session rolling average — early signal of institutional accumulation.", "rationale": "Requires a rolling time series of delivery% in SQLite; a single API call gives one day with no baseline.", "via": "mcp-command-mirror"},
+			{"name": "Pre-Market IEP Drift Analyzer", "command": "iep-drift", "description": "Tracks how accurately each stock's pre-market IEP (Indicative Equilibrium Price) predicts the actual opening price over 30 sessions.", "rationale": "Requires pre-market IEP and actual open price stored in the same SQLite table across sessions — no single API call can produce this comparison.", "via": "mcp-command-mirror"},
+			{"name": "Announcement Flood Detector", "command": "announcement-flood", "description": "Surfaces companies whose filing cadence has spiked above their own historical baseline — a leading indicator of imminent corporate actions like rights issues or mergers.", "rationale": "Compares current filing count against each company's rolling weekly baseline; requires announcement history across weeks in SQLite.", "via": "mcp-command-mirror"},
+			{"name": "Sector Breadth Analyzer", "command": "sector-breadth", "description": "Computes advance/decline ratio, median pChange, and delivery breadth for every constituent of a named index — far richer than the index headline number.", "rationale": "Two-table join: index_constituents × daily_quotes; impossible from any single NSE API call.", "via": "mcp-command-mirror"},
+			{"name": "Index Basket Contributor", "command": "index-driver", "description": "Decomposes any day's index move into per-stock point contributions — identifies the 3-5 stocks driving 80%+ of the index change.", "rationale": "Attribution joins index constituent weights with daily pChange; the weighted sum decomposition requires data only available after a sync populates both tables.", "via": "mcp-command-mirror"},
+			{"name": "Portfolio P&L Tracker", "command": "portfolio pnl", "description": "Tracks unrealized P&L, daily delta, and drawdown for a personal holdings file against the synced quote history.", "rationale": "Holdings file × quote history join across dates; reconstructs portfolio value curve from SQLite — no brokerage API needed.", "via": "mcp-command-mirror"},
+			{"name": "Portfolio Margin Health Dashboard", "command": "portfolio margin-health", "description": "Aggregates VaR margin, extreme loss margin, and adhoc margin across a full portfolio — shows total margin-at-risk and which holdings are the biggest margin consumers.", "rationale": "SUM(var_margin × qty × price) across all holdings in a single query; requires multi-symbol join impossible from serial API calls.", "via": "mcp-command-mirror"},
+			{"name": "Delivery-Price Divergence Scanner", "command": "delivery-divergence", "description": "Detects when price is rising but delivery % is falling (distribution signal) or price falling while delivery is rising (accumulation signal) — separates smart money from retail.", "rationale": "CORR(pChange, delivery_pct) over 10 sessions per symbol; correlation pattern is only visible with a joint time series in SQLite.", "via": "mcp-command-mirror"},
 		},
 		"playbook": []map[string]string{
 			{"topic": "Delivery Spike Detector", "insight": "Requires a rolling time series of delivery% in SQLite; a single API call gives one day with no baseline."},

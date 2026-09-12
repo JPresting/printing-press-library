@@ -6,36 +6,39 @@ MyFitnessPal closed their API, gates per-food export behind premium, and ships p
 
 Learn more at [MyFitnessPal](https://www.myfitnesspal.com).
 
+Created by [@nickscarabosio](https://github.com/nickscarabosio) (Nick Scarabosio).
+Contributors: [@tmchow](https://github.com/tmchow) (Trevin Chow).
+
 ## Install
 
 The recommended path installs both the `myfitnesspal-pp-cli` binary and the `pp-myfitnesspal` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install myfitnesspal
+npx -y @mvanhorn/printing-press-library install myfitnesspal
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install myfitnesspal --cli-only
+npx -y @mvanhorn/printing-press-library install myfitnesspal --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install myfitnesspal --skill-only
+npx -y @mvanhorn/printing-press-library install myfitnesspal --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install myfitnesspal --agent claude-code
-npx -y @mvanhorn/printing-press install myfitnesspal --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install myfitnesspal --agent claude-code
+npx -y @mvanhorn/printing-press-library install myfitnesspal --agent claude-code --agent codex
 ```
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/productivity/myfitnesspal/cmd/myfitnesspal-pp-cli@latest
@@ -50,6 +53,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
 
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install myfitnesspal --cli-only
+```
+
+Then install the focused Hermes skill.
+
 From the Hermes CLI:
 
 ```bash
@@ -62,13 +73,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-myfitnesspal --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install myfitnesspal --agent openclaw
 ```
-Install the pp-myfitnesspal skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-myfitnesspal. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -123,8 +138,8 @@ myfitnesspal-pp-cli auth login --chrome
 # Verifies the session is valid and api.myfitnesspal.com is reachable
 myfitnesspal-pp-cli doctor
 
-# Pulls four months of diary, exercises, water, measurements, and goals into the local SQLite store
-myfitnesspal-pp-cli sync --from 2026-01-01 --to 2026-05-08
+# Pulls diary entries for a date range into the local SQLite store
+myfitnesspal-pp-cli pull-diary --from 2026-01-01 --to 2026-05-08
 
 # Per-food CSV export — the headline thing premium MFP doesn't deliver
 myfitnesspal-pp-cli export csv --from 2026-01-01 --to 2026-05-08 --out diary.csv
@@ -132,8 +147,8 @@ myfitnesspal-pp-cli export csv --from 2026-01-01 --to 2026-05-08 --out diary.csv
 # One-shot agent context: 14 days of diary totals, weight trend, current goals, recent foods, macro deltas
 myfitnesspal-pp-cli context --days 14 --json
 
-# Joins weight measurements with calorie deficit to compute the implied calories-per-pound ratio
-myfitnesspal-pp-cli analytics weight-trend --weeks 8 --smooth 7d
+# Finds the longest streak within 5% of your daily calorie goal
+myfitnesspal-pp-cli analytics streak --days 56 --tolerance 0.05
 
 ```
 
@@ -190,7 +205,7 @@ Run `myfitnesspal-pp-cli --help` for the full command reference and flag list.
 
 Authenticated user record on the v2 API (preferences, paid subs, profiles).
 
-- **`myfitnesspal-pp-cli api_user get`** - Get the v2 user record (units, goals preferences, paid subs, profiles).
+- **`myfitnesspal-pp-cli api-user`** - Get the v2 user record (units, goals preferences, paid subs, profiles).
 
 ### diary
 
@@ -255,19 +270,19 @@ Daily water intake tracking.
 
 ```bash
 # Human-readable table (default in terminal, JSON when piped)
-myfitnesspal-pp-cli api_user --user-id 550e8400-e29b-41d4-a716-446655440000
+myfitnesspal-pp-cli api-user --user-id 12345678
 
 # JSON for scripting and agents
-myfitnesspal-pp-cli api_user --user-id 550e8400-e29b-41d4-a716-446655440000 --json
+myfitnesspal-pp-cli api-user --user-id 12345678 --json
 
 # Filter to specific fields
-myfitnesspal-pp-cli api_user --user-id 550e8400-e29b-41d4-a716-446655440000 --json --select id,name,status
+myfitnesspal-pp-cli api-user --user-id 12345678 --json --select id,name,status
 
 # Dry run — show the request without sending
-myfitnesspal-pp-cli api_user --user-id 550e8400-e29b-41d4-a716-446655440000 --dry-run
+myfitnesspal-pp-cli api-user --user-id 12345678 --dry-run
 
 # Agent mode — JSON + compact + no prompts in one flag
-myfitnesspal-pp-cli api_user --user-id 550e8400-e29b-41d4-a716-446655440000 --agent
+myfitnesspal-pp-cli api-user --user-id 12345678 --agent
 ```
 
 ## Agent Usage

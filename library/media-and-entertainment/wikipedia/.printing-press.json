@@ -5,6 +5,10 @@
   "api_name": "wikipedia",
   "display_name": "Wikipedia",
   "cli_name": "wikipedia-pp-cli",
+  "creator": {
+    "handle": "hnshah",
+    "name": "Hiten Shah"
+  },
   "owner": "hiten-shah",
   "printer": "hnshah",
   "printer_name": "Hiten Shah",
@@ -28,5 +32,6 @@
       "command": "feed",
       "description": "Explore on-this-day events as a ready-made discovery workflow."
     }
-  ]
+  ],
+  "description": "Wikipedia REST API. Get article summaries, search, browse related topics, and access on-this-day events. No authentication required. Uses a polite User-Agent header."
 }

@@ -10,17 +10,17 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/mvanhorn/printing-press-library/library/food-and-dining/jimmy-johns/internal/store"
+	"github.com/spf13/cobra"
 )
 
 type reconcileDiff struct {
-	Resource     string   `json:"resource"`
-	LocalCount   int      `json:"local_count"`
-	RemoteCount  int      `json:"remote_count"`
-	NewIDs       []string `json:"new_ids,omitempty"`
-	RemovedIDs   []string `json:"removed_ids,omitempty"`
-	Notes        []string `json:"notes,omitempty"`
+	Resource    string   `json:"resource"`
+	LocalCount  int      `json:"local_count"`
+	RemoteCount int      `json:"remote_count"`
+	NewIDs      []string `json:"new_ids,omitempty"`
+	RemovedIDs  []string `json:"removed_ids,omitempty"`
+	Notes       []string `json:"notes,omitempty"`
 }
 
 func newReconcileCmd(flags *rootFlags) *cobra.Command {
@@ -78,7 +78,7 @@ the endpoint).`,
 			if address != "" {
 				params["addressSearch"] = address
 			}
-			respBody, err := c.Get("/stores", params)
+			respBody, err := c.Get(cmd.Context(), "/stores", params)
 			if err != nil {
 				diff.Notes = append(diff.Notes,
 					fmt.Sprintf("live /stores call failed (likely PerimeterX): %v", err))

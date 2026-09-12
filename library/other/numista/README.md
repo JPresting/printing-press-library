@@ -4,38 +4,44 @@
 
 This CLI wraps the Numista REST API in a Go single binary, persists every type, issuer, mint, catalogue, and collected item into a local SQLite store, and tracks the 2000-call monthly free-plan quota client-side so batches never run blind. Commands like `types series`, `collection value`, and `crawl issuer` only exist because the local cache lets the CLI compose dozens of calls into one quota-aware operation.
 
-Printed by [@vinnyp](https://github.com/vinnyp) (Vinny Pasceri).
+Created by [@vinnyp](https://github.com/vinnyp) (Vinny Pasceri).
 
 ## Install
 
 The recommended path installs both the `numista-pp-cli` binary and the `pp-numista` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install numista
+npx -y @mvanhorn/printing-press-library install numista
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install numista --cli-only
+npx -y @mvanhorn/printing-press-library install numista --cli-only
 ```
 
 For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install numista --skill-only
+npx -y @mvanhorn/printing-press-library install numista --skill-only
 ```
 
 To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
 
 ```bash
-npx -y @mvanhorn/printing-press install numista --agent claude-code
-npx -y @mvanhorn/printing-press install numista --agent claude-code --agent codex
+npx -y @mvanhorn/printing-press-library install numista --agent claude-code
+npx -y @mvanhorn/printing-press-library install numista --agent claude-code --agent codex
 ```
 
-### Without Node
+### Without Node (Go fallback)
 
-The generated install path is category-agnostic until this CLI is published. If `npx` is not available before publish, install Node or use the category-specific Go fallback from the public-library entry after publish.
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.6 or newer):
+
+```bash
+go install github.com/mvanhorn/printing-press-library/library/other/numista/cmd/numista-pp-cli@latest
+```
+
+This installs the CLI only — no skill.
 
 ### Pre-built binary
 
@@ -43,6 +49,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install numista --cli-only
+```
+
+Then install the focused Hermes skill.
 
 From the Hermes CLI:
 
@@ -56,13 +70,17 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-numista --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
 
-Tell your OpenClaw agent (copy this):
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
+```bash
+npx -y @mvanhorn/printing-press-library install numista --agent openclaw
 ```
-Install the pp-numista skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-numista. The skill defines how its required CLI can be installed.
-```
+
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
 
 ## Use with Claude Desktop
 
@@ -111,22 +129,17 @@ Set `NUMISTA_API_KEY` in your environment (request one at https://en.numista.com
 # Confirm the API key is set, the network is reachable, and the local store is initialized.
 numista-pp-cli doctor
 
-
 # Local SQL view over the lookup_log table: every API call you have made this month, grouped by endpoint. Zero API cost. Pair with the root `--quota` flag (e.g. `numista-pp-cli --quota`) to see this month's used/remaining.
 numista-pp-cli audit --by-endpoint --json
-
 
 # Find a type by free-text search; one API call, result cached.
 numista-pp-cli types search --q 'Australia 3 pence George VI' --json
 
-
 # Fetch full type details; cached on subsequent runs.
 numista-pp-cli types get 11013 --json
 
-
 # Pull every year of issue + every grade's price for one type in one quota-aware fan-out.
 numista-pp-cli types series 11013 --json
-
 
 # Grant the CLI access to your own collection; needed once for user-scoped commands.
 numista-pp-cli oauth-token --grant-type client_credentials --scope view_collection
@@ -245,9 +258,7 @@ Manage oauth token
 - **`numista-pp-cli oauth-token`** - In order to access the data of a Numista user, you will need to authenticate using the OAuth 2.0 protocol.
 See the section "Authentication" above.
 
-
 Two types of authentications are available: authorization code and client credentials.
-
 
 For the "authoriation code" flow, call the endpoint `/oauth_token` with the following parameters:
 - `grant_type` is "authorization_code".
@@ -255,7 +266,6 @@ For the "authoriation code" flow, call the endpoint `/oauth_token` with the foll
 - `client_id` is the client ID which was assigned to your application and provided together with your API key.
 - `client_secret` is your API key.
 - `redirect_uri` is the redirection URI you specified for the step described above.
-
 
 For the "client credentials" flow, call the endpoint `/oauth_token` with the following parameters:
 - `grant_type` is "client_credentials".
@@ -265,7 +275,6 @@ You may use the resulting access token for all subsequent API calls which need u
 The access token should be provided in the HTTP header of the subsequent API calls according the following model:
 
 `Authorization: Bearer {access_token}`
-
 
 The access token has a limited validity period. The lifetime of the access token is indicated in the response of the API.
 
@@ -287,7 +296,6 @@ Manage types
 The API endpoints in this section allow to access data about the Numista users and their collection.
 
 - **`numista-pp-cli users <user_id>`** - Get details about a user
-
 
 ## Output Formats
 

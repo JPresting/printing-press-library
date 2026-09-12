@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "1.0.0"
+var version = "2026.9.3"
 
 type rootFlags struct {
 	asJSON       bool
@@ -180,6 +180,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newCorporateCmd(flags))
 	rootCmd.AddCommand(newEquityCmd(flags))
 	rootCmd.AddCommand(newIndicesCmd(flags))
+	rootCmd.AddCommand(newAuthCmd(flags))
 	rootCmd.AddCommand(newDoctorCmd(flags))
 	rootCmd.AddCommand(newAgentContextCmd(rootCmd))
 	rootCmd.AddCommand(newProfileCmd(flags))
