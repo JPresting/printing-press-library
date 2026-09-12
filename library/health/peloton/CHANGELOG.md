@@ -2,6 +2,10 @@
 
 This file is maintained by printing-press-library release automation. Do not hand-edit release sections in normal PRs.
 
+## 2026.9.7 - 2026-09-12
+
+- fix(peloton): leftover from #1981 — live endpoint select/verbose strip (#1988).
+
 ## 2026.9.6 - 2026-09-12
 
 - fix(peloton): workflow status --json/--agent returns a structured envelope (#1983).
