@@ -6,6 +6,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -94,6 +95,32 @@ func resetMCPPathEnv(t *testing.T) string {
 	}
 	t.Cleanup(restore)
 	return home
+}
+
+// stubMCPCLIAvailable deterministically simulates companion-CLI resolution
+// succeeding or failing, overriding mcpCLIPathResolver for the test's
+// duration. Without this, tests asserting on the store-missing/store-empty
+// message would depend on whether a real "peloton-pp-cli" binary happens to
+// resolve on whatever machine or CI runner executes `go test` -- it won't,
+// during a normal `go test` run, since the test binary has no
+// "peloton-pp-cli" sibling and PATH/PELOTON_CLI_PATH aren't set, but relying
+// on that absence as if it were a deliberate test fixture would be fragile.
+func stubMCPCLIAvailable(t *testing.T, available bool) {
+	t.Helper()
+	original := mcpCLIPathResolver
+	if available {
+		// mcpCompanionCLIAvailable now verifies the resolved path is
+		// actually executable (exec.LookPath), not just present, so a
+		// fabricated path like "/fake/peloton-pp-cli" would fail that
+		// check and defeat this stub. os.Args[0] -- the running test
+		// binary itself -- is a real, executable file guaranteed to exist
+		// in every test environment.
+		exe := os.Args[0]
+		mcpCLIPathResolver = func() (string, error) { return exe, nil }
+	} else {
+		mcpCLIPathResolver = func() (string, error) { return "", fmt.Errorf("simulated: companion CLI not found") }
+	}
+	t.Cleanup(func() { mcpCLIPathResolver = original })
 }
 
 func TestMCPRegisterToolsPreservesTypedSpecialTools(t *testing.T) {
@@ -218,6 +245,7 @@ func TestHandleContextDocumentsUnvalidatedArgumentPassthrough(t *testing.T) {
 
 func TestMCPSearchMissingStoreIsActionable(t *testing.T) {
 	resetMCPPathEnv(t)
+	stubMCPCLIAvailable(t, true)
 
 	result, err := handleSearch(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
 		Arguments: map[string]any{"query": "alpha"},
@@ -238,6 +266,7 @@ func TestMCPSearchMissingStoreIsActionable(t *testing.T) {
 
 func TestMCPSearchEmptyStoreReturnsActionableEnvelope(t *testing.T) {
 	resetMCPPathEnv(t)
+	stubMCPCLIAvailable(t, true)
 	path, err := mcpDBPath()
 	if err != nil {
 		t.Fatalf("mcpDBPath() error = %v", err)
@@ -345,6 +374,7 @@ func TestMCPSearchSelectProjectsTheResultsArray(t *testing.T) {
 
 func TestMCPSQLMissingStoreIsActionable(t *testing.T) {
 	resetMCPPathEnv(t)
+	stubMCPCLIAvailable(t, true)
 
 	result, err := handleSQL(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
 		Arguments: map[string]any{"query": "SELECT 1"},
@@ -365,6 +395,7 @@ func TestMCPSQLMissingStoreIsActionable(t *testing.T) {
 
 func TestMCPSQLEmptyStoreReturnsActionableEnvelope(t *testing.T) {
 	resetMCPPathEnv(t)
+	stubMCPCLIAvailable(t, true)
 	path, err := mcpDBPath()
 	if err != nil {
 		t.Fatalf("mcpDBPath() error = %v", err)
@@ -1348,5 +1379,130 @@ func TestSelectDataPrefixReachesCatalogItemsWhereBareFieldNamesCannot(t *testing
 	}
 	if len(bareResult) != 0 {
 		t.Fatalf("bare field-name select unexpectedly returned data (%s) -- if the envelope-fallback heuristic changed, update selectParamDescriptionDataWrapped's warning and this test together", bare)
+	}
+}
+
+// TestMCPSearchMissingStoreAndBinaryGivesConsistentDiagnosis guards a
+// live-tested dead-end loop: search checked for the local data store before
+// checking companion-binary resolution, so on a deployment missing the
+// peloton-pp-cli binary it reported "No local data store found... Run
+// peloton-pp-cli sync" -- but every path to running sync execs the same
+// missing binary, so an agent following that instruction literally loops
+// until it gives up. Every other CLI-backed (command-mirror) tool already
+// reported "companion CLI binary not found" correctly in this situation;
+// search/sql must give the same honest diagnosis instead of misdiagnosing a
+// missing binary as an un-synced store.
+func TestMCPSearchMissingStoreAndBinaryGivesConsistentDiagnosis(t *testing.T) {
+	resetMCPPathEnv(t)
+	stubMCPCLIAvailable(t, false)
+
+	result, err := handleSearch(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+		Arguments: map[string]any{"query": "alpha"},
+	}})
+	if err != nil {
+		t.Fatalf("handleSearch returned transport error: %v", err)
+	}
+	if result == nil || !result.IsError {
+		t.Fatalf("handleSearch missing store+binary IsError = %v, want true", result != nil && result.IsError)
+	}
+	text := mcpTextContent(t, result)
+	if !strings.Contains(text, "companion CLI unavailable") {
+		t.Fatalf("missing-binary diagnosis %q does not name the actual root cause", text)
+	}
+	if strings.Contains(text, "Run peloton-pp-cli sync") {
+		t.Fatalf("missing-binary diagnosis %q still tells the caller to run a command that execs the same missing binary", text)
+	}
+}
+
+// TestMCPSQLMissingStoreAndBinaryGivesConsistentDiagnosis is the "sql" tool
+// half of the same fix -- see TestMCPSearchMissingStoreAndBinaryGivesConsistentDiagnosis.
+func TestMCPSQLMissingStoreAndBinaryGivesConsistentDiagnosis(t *testing.T) {
+	resetMCPPathEnv(t)
+	stubMCPCLIAvailable(t, false)
+
+	result, err := handleSQL(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+		Arguments: map[string]any{"query": "SELECT 1"},
+	}})
+	if err != nil {
+		t.Fatalf("handleSQL returned transport error: %v", err)
+	}
+	if result == nil || !result.IsError {
+		t.Fatalf("handleSQL missing store+binary IsError = %v, want true", result != nil && result.IsError)
+	}
+	text := mcpTextContent(t, result)
+	if !strings.Contains(text, "companion CLI unavailable") {
+		t.Fatalf("missing-binary diagnosis %q does not name the actual root cause", text)
+	}
+	if strings.Contains(text, "Run peloton-pp-cli sync") {
+		t.Fatalf("missing-binary diagnosis %q still tells the caller to run a command that execs the same missing binary", text)
+	}
+}
+
+// TestMCPSearchEmptyStoreAndMissingBinaryNamesRootCause covers the
+// empty-but-present-store variant of the same fix: next_step must not
+// suggest "run sync" when the binary that command would exec is missing.
+func TestMCPSearchEmptyStoreAndMissingBinaryNamesRootCause(t *testing.T) {
+	resetMCPPathEnv(t)
+	stubMCPCLIAvailable(t, false)
+	path, err := mcpDBPath()
+	if err != nil {
+		t.Fatalf("mcpDBPath() error = %v", err)
+	}
+	db, err := store.Open(path)
+	if err != nil {
+		t.Fatalf("creating empty store: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("closing empty store: %v", err)
+	}
+
+	result, err := handleSearch(context.Background(), mcplib.CallToolRequest{Params: mcplib.CallToolParams{
+		Arguments: map[string]any{"query": "alpha"},
+	}})
+	if err != nil {
+		t.Fatalf("handleSearch returned transport error: %v", err)
+	}
+	text := mcpTextContent(t, result)
+	var envelope struct {
+		NextStep string `json:"next_step"`
+	}
+	if err := json.Unmarshal([]byte(text), &envelope); err != nil {
+		t.Fatalf("empty-store result must be valid JSON: %v\n%s", err, text)
+	}
+	if !strings.Contains(envelope.NextStep, "companion CLI unavailable") {
+		t.Fatalf("next_step = %q, want it to name the missing binary instead of suggesting sync", envelope.NextStep)
+	}
+}
+
+// TestMCPCompanionCLIAvailableRejectsUnexecutablePath guards the P1 review
+// finding: SiblingCLIPath can return a sibling-of-executable candidate or
+// the PELOTON_CLI_PATH env var value without checking either exists or is
+// executable -- only its PATH-search fallback is pre-validated. Without a
+// second check, a stale/wrong PELOTON_CLI_PATH or a non-executable sibling
+// file would report "available" and still recommend "run peloton-pp-cli
+// sync", a remedy that fails the moment it's tried -- the exact dead end
+// this diagnosis exists to avoid.
+func TestMCPCompanionCLIAvailableRejectsUnexecutablePath(t *testing.T) {
+	original := mcpCLIPathResolver
+	defer func() { mcpCLIPathResolver = original }()
+
+	nonExistent := filepath.Join(t.TempDir(), "peloton-pp-cli")
+	mcpCLIPathResolver = func() (string, error) { return nonExistent, nil }
+	if mcpCompanionCLIAvailable() {
+		t.Fatal("mcpCompanionCLIAvailable() = true for a path that does not exist, want false")
+	}
+
+	notExecutable := filepath.Join(t.TempDir(), "peloton-pp-cli")
+	if err := os.WriteFile(notExecutable, []byte("#!/bin/sh\necho hi\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mcpCLIPathResolver = func() (string, error) { return notExecutable, nil }
+	if mcpCompanionCLIAvailable() {
+		t.Fatal("mcpCompanionCLIAvailable() = true for a file without the executable bit set, want false")
+	}
+
+	mcpCLIPathResolver = func() (string, error) { return os.Args[0], nil }
+	if !mcpCompanionCLIAvailable() {
+		t.Fatal("mcpCompanionCLIAvailable() = false for the running test binary itself, want true")
 	}
 }
